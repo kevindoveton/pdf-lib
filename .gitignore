@@ -4,9 +4,9 @@ node_modules/
 coverage/
 ts3.4/
 build/
-dist/
-cjs/
-es/
+#dist/
+#cjs/
+#es/
 
 tsBuildInfo.json
 flamegraph.html

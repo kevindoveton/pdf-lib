@@ -115,6 +115,7 @@ export const drawRectangle = (options) => {
             `Z`,
         ].join(' ')
         : `M 0,0 V ${h} H ${w} V 0 Z`;
+    console.log(options);
     console.log(d);
     // the drawRectangle applies the rotation around its anchor point (bottom-left), it means that the translation should be applied before the rotation
     // invert the y parameter because transformationToMatrix expects parameters from an svg space. The same is valid for rotate and ySkew

@@ -264,6 +264,7 @@ export const drawRectangle = (options: {
         ].join(' ')
       : `M 0,0 V ${h} H ${w} V 0 Z`;
 
+  console.log(options);
   console.log(d);
 
   // the drawRectangle applies the rotation around its anchor point (bottom-left), it means that the translation should be applied before the rotation
