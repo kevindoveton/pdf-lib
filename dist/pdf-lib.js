@@ -26414,6 +26414,1295 @@ end\
     };
     const svgPathToOperators = (path) => apply(parse$1(path));
 
+    const clipSpace = ({ topLeft, topRight, bottomRight, bottomLeft }) => [
+        moveTo(topLeft.x, topLeft.y),
+        lineTo(topRight.x, topRight.y),
+        lineTo(bottomRight.x, bottomRight.y),
+        lineTo(bottomLeft.x, bottomLeft.y),
+        closePath(),
+        clip(),
+        endPath(),
+    ];
+    const clipSpaces = (spaces) => spaces.flatMap(clipSpace);
+    const drawText = (line, options) => [
+        pushGraphicsState(),
+        options.graphicsState && setGraphicsState(options.graphicsState),
+        beginText(),
+        setFillingColor(options.color),
+        setFontAndSize(options.font, options.size),
+        options.strokeWidth && setLineWidth(options.strokeWidth),
+        options.strokeColor && setStrokingColor(options.strokeColor),
+        options.renderMode && setTextRenderingMode(options.renderMode),
+        rotateAndSkewTextRadiansAndTranslate(toRadians(options.rotate), toRadians(options.xSkew), toRadians(options.ySkew), options.x, options.y),
+        showText(line),
+        endText(),
+        popGraphicsState(),
+    ].filter(Boolean);
+    const drawLinesOfText = (lines, options) => {
+        const operators = [
+            pushGraphicsState(),
+            options.graphicsState && setGraphicsState(options.graphicsState),
+            ...(options.clipSpaces ? clipSpaces(options.clipSpaces) : []),
+            options.matrix && concatTransformationMatrix(...options.matrix),
+            beginText(),
+            setFillingColor(options.color),
+            setFontAndSize(options.font, options.size),
+            setLineHeight(options.lineHeight),
+            options.strokeWidth && setLineWidth(options.strokeWidth),
+            options.strokeColor && setStrokingColor(options.strokeColor),
+            options.renderMode && setTextRenderingMode(options.renderMode),
+            rotateAndSkewTextRadiansAndTranslate(toRadians(options.rotate), toRadians(options.xSkew), toRadians(options.ySkew), options.x, options.y),
+        ].filter(Boolean);
+        for (let idx = 0, len = lines.length; idx < len; idx++) {
+            operators.push(showText(lines[idx]), nextLine());
+        }
+        operators.push(endText(), popGraphicsState());
+        return operators;
+    };
+    const drawImage = (name, options) => [
+        pushGraphicsState(),
+        options.graphicsState && setGraphicsState(options.graphicsState),
+        ...(options.clipSpaces ? clipSpaces(options.clipSpaces) : []),
+        options.matrix && concatTransformationMatrix(...options.matrix),
+        translate(options.x, options.y),
+        rotateRadians(toRadians(options.rotate)),
+        scale(options.width, options.height),
+        skewRadians(toRadians(options.xSkew), toRadians(options.ySkew)),
+        drawObject(name),
+        popGraphicsState(),
+    ].filter(Boolean);
+    const drawPage = (name, options) => [
+        pushGraphicsState(),
+        options.graphicsState && setGraphicsState(options.graphicsState),
+        translate(options.x, options.y),
+        rotateRadians(toRadians(options.rotate)),
+        scale(options.xScale, options.yScale),
+        skewRadians(toRadians(options.xSkew), toRadians(options.ySkew)),
+        drawObject(name),
+        popGraphicsState(),
+    ].filter(Boolean);
+    const drawLine = (options) => {
+        var _a, _b;
+        return [
+            pushGraphicsState(),
+            options.graphicsState && setGraphicsState(options.graphicsState),
+            ...(options.clipSpaces ? clipSpaces(options.clipSpaces) : []),
+            options.matrix && concatTransformationMatrix(...options.matrix),
+            options.color && setStrokingColor(options.color),
+            setLineWidth(options.thickness),
+            setDashPattern((_a = options.dashArray) !== null && _a !== void 0 ? _a : [], (_b = options.dashPhase) !== null && _b !== void 0 ? _b : 0),
+            moveTo(options.start.x, options.start.y),
+            options.lineCap && setLineCap(options.lineCap),
+            moveTo(options.start.x, options.start.y),
+            lineTo(options.end.x, options.end.y),
+            stroke(),
+            popGraphicsState(),
+        ].filter(Boolean);
+    };
+    const KAPPA = 4.0 * ((Math.sqrt(2) - 1.0) / 3.0);
+    const drawRectangle = (options) => {
+        var _a, _b;
+        return [
+            pushGraphicsState(),
+            options.graphicsState && setGraphicsState(options.graphicsState),
+            options.color && setFillingColor(options.color),
+            options.borderColor && setStrokingColor(options.borderColor),
+            setLineWidth(options.borderWidth),
+            options.borderLineCap && setLineCap(options.borderLineCap),
+            setDashPattern((_a = options.borderDashArray) !== null && _a !== void 0 ? _a : [], (_b = options.borderDashPhase) !== null && _b !== void 0 ? _b : 0),
+            translate(options.x, options.y),
+            rotateRadians(toRadians(options.rotate)),
+            skewRadians(toRadians(options.xSkew), toRadians(options.ySkew)),
+            moveTo(0, 0),
+            lineTo(0, options.height),
+            lineTo(options.width, options.height),
+            lineTo(options.width, 0),
+            closePath(),
+            // prettier-ignore
+            options.color && options.borderWidth ? fillAndStroke()
+                : options.color ? fill()
+                    : options.borderColor ? stroke()
+                        : closePath(),
+            popGraphicsState(),
+        ].filter(Boolean);
+    };
+    /** @deprecated */
+    const drawEllipsePath = (config) => {
+        let x = asNumber(config.x);
+        let y = asNumber(config.y);
+        const xScale = asNumber(config.xScale);
+        const yScale = asNumber(config.yScale);
+        x -= xScale;
+        y -= yScale;
+        const ox = xScale * KAPPA;
+        const oy = yScale * KAPPA;
+        const xe = x + xScale * 2;
+        const ye = y + yScale * 2;
+        const xm = x + xScale;
+        const ym = y + yScale;
+        return [
+            pushGraphicsState(),
+            moveTo(x, ym),
+            appendBezierCurve(x, ym - oy, xm - ox, y, xm, y),
+            appendBezierCurve(xm + ox, y, xe, ym - oy, xe, ym),
+            appendBezierCurve(xe, ym + oy, xm + ox, ye, xm, ye),
+            appendBezierCurve(xm - ox, ye, x, ym + oy, x, ym),
+            popGraphicsState(),
+        ];
+    };
+    const drawEllipseCurves = (config) => {
+        const centerX = asNumber(config.x);
+        const centerY = asNumber(config.y);
+        const xScale = asNumber(config.xScale);
+        const yScale = asNumber(config.yScale);
+        const x = -xScale;
+        const y = -yScale;
+        const ox = xScale * KAPPA;
+        const oy = yScale * KAPPA;
+        const xe = x + xScale * 2;
+        const ye = y + yScale * 2;
+        const xm = x + xScale;
+        const ym = y + yScale;
+        return [
+            translate(centerX, centerY),
+            rotateRadians(toRadians(config.rotate)),
+            moveTo(x, ym),
+            appendBezierCurve(x, ym - oy, xm - ox, y, xm, y),
+            appendBezierCurve(xm + ox, y, xe, ym - oy, xe, ym),
+            appendBezierCurve(xe, ym + oy, xm + ox, ye, xm, ye),
+            appendBezierCurve(xm - ox, ye, x, ym + oy, x, ym),
+        ];
+    };
+    const drawEllipse = (options) => {
+        var _a, _b, _c;
+        return [
+            pushGraphicsState(),
+            options.graphicsState && setGraphicsState(options.graphicsState),
+            options.color && setFillingColor(options.color),
+            options.borderColor && setStrokingColor(options.borderColor),
+            ...(options.clipSpaces ? clipSpaces(options.clipSpaces) : []),
+            options.matrix && concatTransformationMatrix(...options.matrix),
+            setLineWidth(options.borderWidth),
+            options.borderLineCap && setLineCap(options.borderLineCap),
+            setDashPattern((_a = options.borderDashArray) !== null && _a !== void 0 ? _a : [], (_b = options.borderDashPhase) !== null && _b !== void 0 ? _b : 0),
+            // The `drawEllipsePath` branch is only here for backwards compatibility.
+            // See https://github.com/Hopding/pdf-lib/pull/511#issuecomment-667685655.
+            ...(options.rotate === undefined
+                ? drawEllipsePath({
+                    x: options.x,
+                    y: options.y,
+                    xScale: options.xScale,
+                    yScale: options.yScale,
+                })
+                : drawEllipseCurves({
+                    x: options.x,
+                    y: options.y,
+                    xScale: options.xScale,
+                    yScale: options.yScale,
+                    rotate: (_c = options.rotate) !== null && _c !== void 0 ? _c : degrees(0),
+                })),
+            // prettier-ignore
+            options.color && options.borderWidth ? fillAndStroke()
+                : options.color ? fill()
+                    : options.borderColor ? stroke()
+                        : closePath(),
+            popGraphicsState(),
+        ].filter(Boolean);
+    };
+    const drawSvgPath = (path, options) => {
+        var _a, _b, _c;
+        return [
+            pushGraphicsState(),
+            options.graphicsState && setGraphicsState(options.graphicsState),
+            ...(options.clipSpaces ? clipSpaces(options.clipSpaces) : []),
+            options.matrix && concatTransformationMatrix(...options.matrix),
+            translate(options.x, options.y),
+            rotateRadians(toRadians((_a = options.rotate) !== null && _a !== void 0 ? _a : degrees(0))),
+            // SVG path Y axis is opposite pdf-lib's
+            options.scale ? scale(options.scale, -options.scale) : scale(1, -1),
+            options.color && setFillingColor(options.color),
+            options.borderColor && setStrokingColor(options.borderColor),
+            options.borderWidth && setLineWidth(options.borderWidth),
+            options.borderLineCap && setLineCap(options.borderLineCap),
+            setDashPattern((_b = options.borderDashArray) !== null && _b !== void 0 ? _b : [], (_c = options.borderDashPhase) !== null && _c !== void 0 ? _c : 0),
+            ...svgPathToOperators(path),
+            // prettier-ignore
+            options.color && options.borderWidth ? fillAndStroke()
+                : options.color ? options.fillRule === exports.FillRule.EvenOdd ? fillEvenOdd() : fill()
+                    : options.borderColor ? stroke()
+                        : closePath(),
+            popGraphicsState(),
+        ].filter(Boolean);
+    };
+    const drawCheckMark = (options) => {
+        const size = asNumber(options.size);
+        /*********************** Define Check Mark Points ***************************/
+        // A check mark is defined by three points in some coordinate space. Here, we
+        // define these points in a unit coordinate system, where the range of the x
+        // and y axis are both [-1, 1].
+        //
+        // Note that we do not hard code `p1y` in case we wish to change the
+        // size/shape of the check mark in the future. We want the check mark to
+        // always form a right angle. This means that the dot product between (p1-p2)
+        // and (p3-p2) should be zero:
+        //
+        //   (p1x-p2x) * (p3x-p2x) + (p1y-p2y) * (p3y-p2y) = 0
+        //
+        // We can now rejigger this equation to solve for `p1y`:
+        //
+        //   (p1y-p2y) * (p3y-p2y) = -((p1x-p2x) * (p3x-p2x))
+        //   (p1y-p2y) = -((p1x-p2x) * (p3x-p2x)) / (p3y-p2y)
+        //   p1y = -((p1x-p2x) * (p3x-p2x)) / (p3y-p2y) + p2y
+        //
+        // Thanks to my friend Joel Walker (https://github.com/JWalker1995) for
+        // devising the above equation and unit coordinate system approach!
+        // (x, y) coords of the check mark's bottommost point
+        const p2x = -1 + 0.75;
+        const p2y = -1 + 0.51;
+        // (x, y) coords of the check mark's topmost point
+        const p3y = 1 - 0.525;
+        const p3x = 1 - 0.31;
+        // (x, y) coords of the check mark's center (vertically) point
+        const p1x = -1 + 0.325;
+        const p1y = -((p1x - p2x) * (p3x - p2x)) / (p3y - p2y) + p2y;
+        /****************************************************************************/
+        return [
+            pushGraphicsState(),
+            options.color && setStrokingColor(options.color),
+            setLineWidth(options.thickness),
+            translate(options.x, options.y),
+            moveTo(p1x * size, p1y * size),
+            lineTo(p2x * size, p2y * size),
+            lineTo(p3x * size, p3y * size),
+            stroke(),
+            popGraphicsState(),
+        ].filter(Boolean);
+    };
+    // prettier-ignore
+    const rotateInPlace = (options) => options.rotation === 0 ? [
+        translate(0, 0),
+        rotateDegrees(0)
+    ]
+        : options.rotation === 90 ? [
+            translate(options.width, 0),
+            rotateDegrees(90)
+        ]
+            : options.rotation === 180 ? [
+                translate(options.width, options.height),
+                rotateDegrees(180)
+            ]
+                : options.rotation === 270 ? [
+                    translate(0, options.height),
+                    rotateDegrees(270)
+                ]
+                    : []; // Invalid rotation - noop
+    const drawCheckBox = (options) => {
+        const outline = drawRectangle({
+            x: options.x,
+            y: options.y,
+            width: options.width,
+            height: options.height,
+            borderWidth: options.borderWidth,
+            color: options.color,
+            borderColor: options.borderColor,
+            rotate: degrees(0),
+            xSkew: degrees(0),
+            ySkew: degrees(0),
+        });
+        if (!options.filled)
+            return outline;
+        const width = asNumber(options.width);
+        const height = asNumber(options.height);
+        const checkMarkSize = Math.min(width, height) / 2;
+        const checkMark = drawCheckMark({
+            x: width / 2,
+            y: height / 2,
+            size: checkMarkSize,
+            thickness: options.thickness,
+            color: options.markColor,
+        });
+        return [pushGraphicsState(), ...outline, ...checkMark, popGraphicsState()];
+    };
+    const drawRadioButton = (options) => {
+        const width = asNumber(options.width);
+        const height = asNumber(options.height);
+        const outlineScale = Math.min(width, height) / 2;
+        const outline = drawEllipse({
+            x: options.x,
+            y: options.y,
+            xScale: outlineScale,
+            yScale: outlineScale,
+            color: options.color,
+            borderColor: options.borderColor,
+            borderWidth: options.borderWidth,
+        });
+        if (!options.filled)
+            return outline;
+        const dot = drawEllipse({
+            x: options.x,
+            y: options.y,
+            xScale: outlineScale * 0.45,
+            yScale: outlineScale * 0.45,
+            color: options.dotColor,
+            borderColor: undefined,
+            borderWidth: 0,
+        });
+        return [pushGraphicsState(), ...outline, ...dot, popGraphicsState()];
+    };
+    const drawButton = (options) => {
+        const x = asNumber(options.x);
+        const y = asNumber(options.y);
+        const width = asNumber(options.width);
+        const height = asNumber(options.height);
+        const background = drawRectangle({
+            x,
+            y,
+            width,
+            height,
+            borderWidth: options.borderWidth,
+            color: options.color,
+            borderColor: options.borderColor,
+            rotate: degrees(0),
+            xSkew: degrees(0),
+            ySkew: degrees(0),
+        });
+        const lines = drawTextLines(options.textLines, {
+            color: options.textColor,
+            font: options.font,
+            size: options.fontSize,
+            rotate: degrees(0),
+            xSkew: degrees(0),
+            ySkew: degrees(0),
+        });
+        return [pushGraphicsState(), ...background, ...lines, popGraphicsState()];
+    };
+    const drawTextLines = (lines, options) => {
+        const operators = [
+            beginText(),
+            setFillingColor(options.color),
+            setFontAndSize(options.font, options.size),
+        ];
+        for (let idx = 0, len = lines.length; idx < len; idx++) {
+            const { encoded, x, y } = lines[idx];
+            operators.push(rotateAndSkewTextRadiansAndTranslate(toRadians(options.rotate), toRadians(options.xSkew), toRadians(options.ySkew), x, y), showText(encoded));
+        }
+        operators.push(endText());
+        return operators;
+    };
+    const drawTextField = (options) => {
+        const x = asNumber(options.x);
+        const y = asNumber(options.y);
+        const width = asNumber(options.width);
+        const height = asNumber(options.height);
+        const borderWidth = asNumber(options.borderWidth);
+        const padding = asNumber(options.padding);
+        const clipX = x + borderWidth / 2 + padding;
+        const clipY = y + borderWidth / 2 + padding;
+        const clipWidth = width - (borderWidth / 2 + padding) * 2;
+        const clipHeight = height - (borderWidth / 2 + padding) * 2;
+        const clippingArea = [
+            moveTo(clipX, clipY),
+            lineTo(clipX, clipY + clipHeight),
+            lineTo(clipX + clipWidth, clipY + clipHeight),
+            lineTo(clipX + clipWidth, clipY),
+            closePath(),
+            clip(),
+            endPath(),
+        ];
+        const background = drawRectangle({
+            x,
+            y,
+            width,
+            height,
+            borderWidth: options.borderWidth,
+            color: options.color,
+            borderColor: options.borderColor,
+            rotate: degrees(0),
+            xSkew: degrees(0),
+            ySkew: degrees(0),
+        });
+        const lines = drawTextLines(options.textLines, {
+            color: options.textColor,
+            font: options.font,
+            size: options.fontSize,
+            rotate: degrees(0),
+            xSkew: degrees(0),
+            ySkew: degrees(0),
+        });
+        const markedContent = [
+            beginMarkedContent('Tx'),
+            pushGraphicsState(),
+            ...lines,
+            popGraphicsState(),
+            endMarkedContent(),
+        ];
+        return [
+            pushGraphicsState(),
+            ...background,
+            ...clippingArea,
+            ...markedContent,
+            popGraphicsState(),
+        ];
+    };
+    const drawOptionList = (options) => {
+        const x = asNumber(options.x);
+        const y = asNumber(options.y);
+        const width = asNumber(options.width);
+        const height = asNumber(options.height);
+        const lineHeight = asNumber(options.lineHeight);
+        const borderWidth = asNumber(options.borderWidth);
+        const padding = asNumber(options.padding);
+        const clipX = x + borderWidth / 2 + padding;
+        const clipY = y + borderWidth / 2 + padding;
+        const clipWidth = width - (borderWidth / 2 + padding) * 2;
+        const clipHeight = height - (borderWidth / 2 + padding) * 2;
+        const clippingArea = [
+            moveTo(clipX, clipY),
+            lineTo(clipX, clipY + clipHeight),
+            lineTo(clipX + clipWidth, clipY + clipHeight),
+            lineTo(clipX + clipWidth, clipY),
+            closePath(),
+            clip(),
+            endPath(),
+        ];
+        const background = drawRectangle({
+            x,
+            y,
+            width,
+            height,
+            borderWidth: options.borderWidth,
+            color: options.color,
+            borderColor: options.borderColor,
+            rotate: degrees(0),
+            xSkew: degrees(0),
+            ySkew: degrees(0),
+        });
+        const highlights = [];
+        for (let idx = 0, len = options.selectedLines.length; idx < len; idx++) {
+            const line = options.textLines[options.selectedLines[idx]];
+            highlights.push(...drawRectangle({
+                x: line.x - padding,
+                y: line.y - (lineHeight - line.height) / 2,
+                width: width - borderWidth,
+                height: line.height + (lineHeight - line.height) / 2,
+                borderWidth: 0,
+                color: options.selectedColor,
+                borderColor: undefined,
+                rotate: degrees(0),
+                xSkew: degrees(0),
+                ySkew: degrees(0),
+            }));
+        }
+        const lines = drawTextLines(options.textLines, {
+            color: options.textColor,
+            font: options.font,
+            size: options.fontSize,
+            rotate: degrees(0),
+            xSkew: degrees(0),
+            ySkew: degrees(0),
+        });
+        const markedContent = [
+            beginMarkedContent('Tx'),
+            pushGraphicsState(),
+            ...lines,
+            popGraphicsState(),
+            endMarkedContent(),
+        ];
+        return [
+            pushGraphicsState(),
+            ...background,
+            ...highlights,
+            ...clippingArea,
+            ...markedContent,
+            popGraphicsState(),
+        ];
+    };
+
+    // tslint:disable: max-classes-per-file
+    // TODO: Include link to documentation with example
+    class EncryptedPDFError extends Error {
+        constructor() {
+            const msg = 'Input document to `PDFDocument.load` is encrypted. You can use `PDFDocument.load(..., { ignoreEncryption: true })` if you wish to load the document anyways.';
+            super(msg);
+        }
+    }
+    // TODO: Include link to documentation with example
+    class FontkitNotRegisteredError extends Error {
+        constructor() {
+            const msg = 'Input to `PDFDocument.embedFont` was a custom font, but no `fontkit` instance was found. You must register a `fontkit` instance with `PDFDocument.registerFontkit(...)` before embedding custom fonts.';
+            super(msg);
+        }
+    }
+    // TODO: Include link to documentation with example
+    class ForeignPageError extends Error {
+        constructor() {
+            const msg = 'A `page` passed to `PDFDocument.addPage` or `PDFDocument.insertPage` was from a different (foreign) PDF document. If you want to copy pages from one PDFDocument to another, you must use `PDFDocument.copyPages(...)` to copy the pages before adding or inserting them.';
+            super(msg);
+        }
+    }
+    // TODO: Include link to documentation with example
+    class RemovePageFromEmptyDocumentError extends Error {
+        constructor() {
+            const msg = 'PDFDocument has no pages so `PDFDocument.removePage` cannot be called';
+            super(msg);
+        }
+    }
+    class NoSuchFieldError extends Error {
+        constructor(name) {
+            const msg = `PDFDocument has no form field with the name "${name}"`;
+            super(msg);
+        }
+    }
+    class UnexpectedFieldTypeError extends Error {
+        constructor(name, expected, actual) {
+            var _a, _b;
+            const expectedType = expected === null || expected === void 0 ? void 0 : expected.name;
+            const actualType = (_b = (_a = actual === null || actual === void 0 ? void 0 : actual.constructor) === null || _a === void 0 ? void 0 : _a.name) !== null && _b !== void 0 ? _b : actual;
+            const msg = `Expected field "${name}" to be of type ${expectedType}, ` +
+                `but it is actually of type ${actualType}`;
+            super(msg);
+        }
+    }
+    class MissingOnValueCheckError extends Error {
+        constructor(onValue) {
+            const msg = `Failed to select check box due to missing onValue: "${onValue}"`;
+            super(msg);
+        }
+    }
+    class FieldAlreadyExistsError extends Error {
+        constructor(name) {
+            const msg = `A field already exists with the specified name: "${name}"`;
+            super(msg);
+        }
+    }
+    class InvalidFieldNamePartError extends Error {
+        constructor(namePart) {
+            const msg = `Field name contains invalid component: "${namePart}"`;
+            super(msg);
+        }
+    }
+    class FieldExistsAsNonTerminalError extends Error {
+        constructor(name) {
+            const msg = `A non-terminal field already exists with the specified name: "${name}"`;
+            super(msg);
+        }
+    }
+    class RichTextFieldReadError extends Error {
+        constructor(fieldName) {
+            const msg = `Reading rich text fields is not supported: Attempted to read rich text field: ${fieldName}`;
+            super(msg);
+        }
+    }
+    class CombedTextLayoutError extends Error {
+        constructor(lineLength, cellCount) {
+            const msg = `Failed to layout combed text as lineLength=${lineLength} is greater than cellCount=${cellCount}`;
+            super(msg);
+        }
+    }
+    class ExceededMaxLengthError extends Error {
+        constructor(textLength, maxLength, name) {
+            const msg = `Attempted to set text with length=${textLength} for TextField with maxLength=${maxLength} and name=${name}`;
+            super(msg);
+        }
+    }
+    class InvalidMaxLengthError extends Error {
+        constructor(textLength, maxLength, name) {
+            const msg = `Attempted to set maxLength=${maxLength}, which is less than ${textLength}, the length of this field's current value (name=${name})`;
+            super(msg);
+        }
+    }
+
+    exports.TextAlignment = void 0;
+    (function (TextAlignment) {
+        TextAlignment[TextAlignment["Left"] = 0] = "Left";
+        TextAlignment[TextAlignment["Center"] = 1] = "Center";
+        TextAlignment[TextAlignment["Right"] = 2] = "Right";
+    })(exports.TextAlignment || (exports.TextAlignment = {}));
+
+    const MIN_FONT_SIZE = 4;
+    const MAX_FONT_SIZE = 500;
+    const computeFontSize = (lines, font, bounds, multiline = false) => {
+        let fontSize = MIN_FONT_SIZE;
+        while (fontSize < MAX_FONT_SIZE) {
+            let linesUsed = 0;
+            for (let lineIdx = 0, lineLen = lines.length; lineIdx < lineLen; lineIdx++) {
+                linesUsed += 1;
+                const line = lines[lineIdx];
+                const words = line.split(' ');
+                // Layout the words using the current `fontSize`, line wrapping
+                // whenever we reach the end of the current line.
+                let spaceInLineRemaining = bounds.width;
+                for (let idx = 0, len = words.length; idx < len; idx++) {
+                    const isLastWord = idx === len - 1;
+                    const word = isLastWord ? words[idx] : words[idx] + ' ';
+                    const widthOfWord = font.widthOfTextAtSize(word, fontSize);
+                    spaceInLineRemaining -= widthOfWord;
+                    if (spaceInLineRemaining <= 0) {
+                        linesUsed += 1;
+                        spaceInLineRemaining = bounds.width - widthOfWord;
+                    }
+                }
+            }
+            // Return if we exceeded the allowed width
+            if (!multiline && linesUsed > lines.length)
+                return fontSize - 1;
+            const height = font.heightAtSize(fontSize);
+            const lineHeight = height + height * 0.2;
+            const totalHeight = lineHeight * linesUsed;
+            // Return if we exceeded the allowed height
+            if (totalHeight > Math.abs(bounds.height))
+                return fontSize - 1;
+            fontSize += 1;
+        }
+        return fontSize;
+    };
+    const computeCombedFontSize = (line, font, bounds, cellCount) => {
+        const cellWidth = bounds.width / cellCount;
+        const cellHeight = bounds.height;
+        let fontSize = MIN_FONT_SIZE;
+        const chars = charSplit(line);
+        while (fontSize < MAX_FONT_SIZE) {
+            for (let idx = 0, len = chars.length; idx < len; idx++) {
+                const c = chars[idx];
+                const tooLong = font.widthOfTextAtSize(c, fontSize) > cellWidth * 0.75;
+                if (tooLong)
+                    return fontSize - 1;
+            }
+            const height = font.heightAtSize(fontSize, { descender: false });
+            if (height > cellHeight)
+                return fontSize - 1;
+            fontSize += 1;
+        }
+        return fontSize;
+    };
+    const lastIndexOfWhitespace = (line) => {
+        for (let idx = line.length; idx > 0; idx--) {
+            if (/\s/.test(line[idx]))
+                return idx;
+        }
+        return undefined;
+    };
+    const splitOutLines = (input, maxWidth, font, fontSize) => {
+        var _a;
+        let lastWhitespaceIdx = input.length;
+        while (lastWhitespaceIdx > 0) {
+            const line = input.substring(0, lastWhitespaceIdx);
+            const encoded = font.encodeText(line);
+            const width = font.widthOfTextAtSize(line, fontSize);
+            if (width < maxWidth) {
+                const remainder = input.substring(lastWhitespaceIdx) || undefined;
+                return { line, encoded, width, remainder };
+            }
+            lastWhitespaceIdx = (_a = lastIndexOfWhitespace(line)) !== null && _a !== void 0 ? _a : 0;
+        }
+        // We were unable to split the input enough to get a chunk that would fit
+        // within the specified `maxWidth` so we'll just return everything
+        return {
+            line: input,
+            encoded: font.encodeText(input),
+            width: font.widthOfTextAtSize(input, fontSize),
+            remainder: undefined,
+        };
+    };
+    const layoutMultilineText = (text, { alignment, fontSize, font, bounds }) => {
+        const lines = lineSplit(cleanText(text));
+        if (fontSize === undefined || fontSize === 0) {
+            fontSize = computeFontSize(lines, font, bounds, true);
+        }
+        const height = font.heightAtSize(fontSize);
+        const lineHeight = height + height * 0.2;
+        const textLines = [];
+        let minX = bounds.x;
+        let minY = bounds.y;
+        let maxX = bounds.x + bounds.width;
+        let maxY = bounds.y + bounds.height;
+        let y = bounds.y + bounds.height;
+        for (let idx = 0, len = lines.length; idx < len; idx++) {
+            let prevRemainder = lines[idx];
+            while (prevRemainder !== undefined) {
+                const { line, encoded, width, remainder } = splitOutLines(prevRemainder, bounds.width, font, fontSize);
+                // prettier-ignore
+                const x = (alignment === exports.TextAlignment.Left ? bounds.x
+                    : alignment === exports.TextAlignment.Center ? bounds.x + (bounds.width / 2) - (width / 2)
+                        : alignment === exports.TextAlignment.Right ? bounds.x + bounds.width - width
+                            : bounds.x);
+                y -= lineHeight;
+                if (x < minX)
+                    minX = x;
+                if (y < minY)
+                    minY = y;
+                if (x + width > maxX)
+                    maxX = x + width;
+                if (y + height > maxY)
+                    maxY = y + height;
+                textLines.push({ text: line, encoded, width, height, x, y });
+                // Only trim lines that we had to split ourselves. So we won't trim lines
+                // that the user provided themselves with whitespace.
+                prevRemainder = remainder === null || remainder === void 0 ? void 0 : remainder.trim();
+            }
+        }
+        return {
+            fontSize,
+            lineHeight,
+            lines: textLines,
+            bounds: {
+                x: minX,
+                y: minY,
+                width: maxX - minX,
+                height: maxY - minY,
+            },
+        };
+    };
+    const layoutCombedText = (text, { fontSize, font, bounds, cellCount }) => {
+        const line = mergeLines(cleanText(text));
+        if (line.length > cellCount) {
+            throw new CombedTextLayoutError(line.length, cellCount);
+        }
+        if (fontSize === undefined || fontSize === 0) {
+            fontSize = computeCombedFontSize(line, font, bounds, cellCount);
+        }
+        const cellWidth = bounds.width / cellCount;
+        const height = font.heightAtSize(fontSize, { descender: false });
+        const y = bounds.y + (bounds.height / 2 - height / 2);
+        const cells = [];
+        let minX = bounds.x;
+        let minY = bounds.y;
+        let maxX = bounds.x + bounds.width;
+        let maxY = bounds.y + bounds.height;
+        let cellOffset = 0;
+        let charOffset = 0;
+        while (cellOffset < cellCount) {
+            const [char, charLength] = charAtIndex(line, charOffset);
+            const encoded = font.encodeText(char);
+            const width = font.widthOfTextAtSize(char, fontSize);
+            const cellCenter = bounds.x + (cellWidth * cellOffset + cellWidth / 2);
+            const x = cellCenter - width / 2;
+            if (x < minX)
+                minX = x;
+            if (y < minY)
+                minY = y;
+            if (x + width > maxX)
+                maxX = x + width;
+            if (y + height > maxY)
+                maxY = y + height;
+            cells.push({ text: line, encoded, width, height, x, y });
+            cellOffset += 1;
+            charOffset += charLength;
+        }
+        return {
+            fontSize,
+            cells,
+            bounds: {
+                x: minX,
+                y: minY,
+                width: maxX - minX,
+                height: maxY - minY,
+            },
+        };
+    };
+    const layoutSinglelineText = (text, { alignment, fontSize, font, bounds }) => {
+        const line = mergeLines(cleanText(text));
+        if (fontSize === undefined || fontSize === 0) {
+            fontSize = computeFontSize([line], font, bounds);
+        }
+        const encoded = font.encodeText(line);
+        const width = font.widthOfTextAtSize(line, fontSize);
+        const height = font.heightAtSize(fontSize, { descender: false });
+        // prettier-ignore
+        const x = (alignment === exports.TextAlignment.Left ? bounds.x
+            : alignment === exports.TextAlignment.Center ? bounds.x + (bounds.width / 2) - (width / 2)
+                : alignment === exports.TextAlignment.Right ? bounds.x + bounds.width - width
+                    : bounds.x);
+        const y = bounds.y + (bounds.height / 2 - height / 2);
+        return {
+            fontSize,
+            line: { text: line, encoded, width, height, x, y },
+            bounds: { x, y, width, height },
+        };
+    };
+
+    /********************* Appearance Provider Functions **************************/
+    const normalizeAppearance = (appearance) => {
+        if ('normal' in appearance)
+            return appearance;
+        return { normal: appearance };
+    };
+    // Examples:
+    //   `/Helv 12 Tf` -> ['/Helv 12 Tf', 'Helv', '12']
+    //   `/HeBo 8.00 Tf` -> ['/HeBo 8 Tf', 'HeBo', '8.00']
+    const tfRegex = /\/([^\0\t\n\f\r\ ]+)[\0\t\n\f\r\ ]+(\d*\.\d+|\d+)[\0\t\n\f\r\ ]+Tf/;
+    const getDefaultFontSize = (field) => {
+        var _a, _b;
+        const da = (_a = field.getDefaultAppearance()) !== null && _a !== void 0 ? _a : '';
+        const daMatch = (_b = findLastMatch(da, tfRegex).match) !== null && _b !== void 0 ? _b : [];
+        const defaultFontSize = Number(daMatch[2]);
+        return isFinite(defaultFontSize) ? defaultFontSize : undefined;
+    };
+    // Examples:
+    //   `0.3 g` -> ['0.3', 'g']
+    //   `0.3 1 .3 rg` -> ['0.3', '1', '.3', 'rg']
+    //   `0.3 1 .3 0 k` -> ['0.3', '1', '.3', '0', 'k']
+    const colorRegex = /(\d*\.\d+|\d+)[\0\t\n\f\r\ ]*(\d*\.\d+|\d+)?[\0\t\n\f\r\ ]*(\d*\.\d+|\d+)?[\0\t\n\f\r\ ]*(\d*\.\d+|\d+)?[\0\t\n\f\r\ ]+(g|rg|k)/;
+    const getDefaultColor = (field) => {
+        var _a;
+        const da = (_a = field.getDefaultAppearance()) !== null && _a !== void 0 ? _a : '';
+        const daMatch = findLastMatch(da, colorRegex).match;
+        const [, c1, c2, c3, c4, colorSpace] = daMatch !== null && daMatch !== void 0 ? daMatch : [];
+        if (colorSpace === 'g' && c1) {
+            return grayscale(Number(c1));
+        }
+        if (colorSpace === 'rg' && c1 && c2 && c3) {
+            return rgb(Number(c1), Number(c2), Number(c3));
+        }
+        if (colorSpace === 'k' && c1 && c2 && c3 && c4) {
+            return cmyk(Number(c1), Number(c2), Number(c3), Number(c4));
+        }
+        return undefined;
+    };
+    const updateDefaultAppearance = (field, color, font, fontSize = 0) => {
+        var _a;
+        const da = [
+            setFillingColor(color).toString(),
+            setFontAndSize((_a = font === null || font === void 0 ? void 0 : font.name) !== null && _a !== void 0 ? _a : 'dummy__noop', fontSize).toString(),
+        ].join('\n');
+        field.setDefaultAppearance(da);
+    };
+    const defaultCheckBoxAppearanceProvider = (checkBox, widget) => {
+        var _a, _b, _c;
+        // The `/DA` entry can be at the widget or field level - so we handle both
+        const widgetColor = getDefaultColor(widget);
+        const fieldColor = getDefaultColor(checkBox.acroField);
+        const rectangle = widget.getRectangle();
+        const ap = widget.getAppearanceCharacteristics();
+        const bs = widget.getBorderStyle();
+        const borderWidth = (_a = bs === null || bs === void 0 ? void 0 : bs.getWidth()) !== null && _a !== void 0 ? _a : 0;
+        const rotation = reduceRotation(ap === null || ap === void 0 ? void 0 : ap.getRotation());
+        const { width, height } = adjustDimsForRotation(rectangle, rotation);
+        const rotate = rotateInPlace({ ...rectangle, rotation });
+        const black = rgb(0, 0, 0);
+        const borderColor = (_b = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBorderColor())) !== null && _b !== void 0 ? _b : black;
+        const normalBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor());
+        const downBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor(), 0.8);
+        // Update color
+        const textColor = (_c = widgetColor !== null && widgetColor !== void 0 ? widgetColor : fieldColor) !== null && _c !== void 0 ? _c : black;
+        if (widgetColor) {
+            updateDefaultAppearance(widget, textColor);
+        }
+        else {
+            updateDefaultAppearance(checkBox.acroField, textColor);
+        }
+        const options = {
+            x: 0 + borderWidth / 2,
+            y: 0 + borderWidth / 2,
+            width: width - borderWidth,
+            height: height - borderWidth,
+            thickness: 1.5,
+            borderWidth,
+            borderColor,
+            markColor: textColor,
+        };
+        return {
+            normal: {
+                on: [
+                    ...rotate,
+                    ...drawCheckBox({
+                        ...options,
+                        color: normalBackgroundColor,
+                        filled: true,
+                    }),
+                ],
+                off: [
+                    ...rotate,
+                    ...drawCheckBox({
+                        ...options,
+                        color: normalBackgroundColor,
+                        filled: false,
+                    }),
+                ],
+            },
+            down: {
+                on: [
+                    ...rotate,
+                    ...drawCheckBox({
+                        ...options,
+                        color: downBackgroundColor,
+                        filled: true,
+                    }),
+                ],
+                off: [
+                    ...rotate,
+                    ...drawCheckBox({
+                        ...options,
+                        color: downBackgroundColor,
+                        filled: false,
+                    }),
+                ],
+            },
+        };
+    };
+    const defaultRadioGroupAppearanceProvider = (radioGroup, widget) => {
+        var _a, _b, _c;
+        // The `/DA` entry can be at the widget or field level - so we handle both
+        const widgetColor = getDefaultColor(widget);
+        const fieldColor = getDefaultColor(radioGroup.acroField);
+        const rectangle = widget.getRectangle();
+        const ap = widget.getAppearanceCharacteristics();
+        const bs = widget.getBorderStyle();
+        const borderWidth = (_a = bs === null || bs === void 0 ? void 0 : bs.getWidth()) !== null && _a !== void 0 ? _a : 0;
+        const rotation = reduceRotation(ap === null || ap === void 0 ? void 0 : ap.getRotation());
+        const { width, height } = adjustDimsForRotation(rectangle, rotation);
+        const rotate = rotateInPlace({ ...rectangle, rotation });
+        const black = rgb(0, 0, 0);
+        const borderColor = (_b = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBorderColor())) !== null && _b !== void 0 ? _b : black;
+        const normalBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor());
+        const downBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor(), 0.8);
+        // Update color
+        const textColor = (_c = widgetColor !== null && widgetColor !== void 0 ? widgetColor : fieldColor) !== null && _c !== void 0 ? _c : black;
+        if (widgetColor) {
+            updateDefaultAppearance(widget, textColor);
+        }
+        else {
+            updateDefaultAppearance(radioGroup.acroField, textColor);
+        }
+        const options = {
+            x: width / 2,
+            y: height / 2,
+            width: width - borderWidth,
+            height: height - borderWidth,
+            borderWidth,
+            borderColor,
+            dotColor: textColor,
+        };
+        return {
+            normal: {
+                on: [
+                    ...rotate,
+                    ...drawRadioButton({
+                        ...options,
+                        color: normalBackgroundColor,
+                        filled: true,
+                    }),
+                ],
+                off: [
+                    ...rotate,
+                    ...drawRadioButton({
+                        ...options,
+                        color: normalBackgroundColor,
+                        filled: false,
+                    }),
+                ],
+            },
+            down: {
+                on: [
+                    ...rotate,
+                    ...drawRadioButton({
+                        ...options,
+                        color: downBackgroundColor,
+                        filled: true,
+                    }),
+                ],
+                off: [
+                    ...rotate,
+                    ...drawRadioButton({
+                        ...options,
+                        color: downBackgroundColor,
+                        filled: false,
+                    }),
+                ],
+            },
+        };
+    };
+    const defaultButtonAppearanceProvider = (button, widget, font) => {
+        var _a, _b, _c, _d, _e;
+        // The `/DA` entry can be at the widget or field level - so we handle both
+        const widgetColor = getDefaultColor(widget);
+        const fieldColor = getDefaultColor(button.acroField);
+        const widgetFontSize = getDefaultFontSize(widget);
+        const fieldFontSize = getDefaultFontSize(button.acroField);
+        const rectangle = widget.getRectangle();
+        const ap = widget.getAppearanceCharacteristics();
+        const bs = widget.getBorderStyle();
+        const captions = ap === null || ap === void 0 ? void 0 : ap.getCaptions();
+        const normalText = (_a = captions === null || captions === void 0 ? void 0 : captions.normal) !== null && _a !== void 0 ? _a : '';
+        const downText = (_c = (_b = captions === null || captions === void 0 ? void 0 : captions.down) !== null && _b !== void 0 ? _b : normalText) !== null && _c !== void 0 ? _c : '';
+        const borderWidth = (_d = bs === null || bs === void 0 ? void 0 : bs.getWidth()) !== null && _d !== void 0 ? _d : 0;
+        const rotation = reduceRotation(ap === null || ap === void 0 ? void 0 : ap.getRotation());
+        const { width, height } = adjustDimsForRotation(rectangle, rotation);
+        const rotate = rotateInPlace({ ...rectangle, rotation });
+        const black = rgb(0, 0, 0);
+        const borderColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBorderColor());
+        const normalBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor());
+        const downBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor(), 0.8);
+        const bounds = {
+            x: borderWidth,
+            y: borderWidth,
+            width: width - borderWidth * 2,
+            height: height - borderWidth * 2,
+        };
+        const normalLayout = layoutSinglelineText(normalText, {
+            alignment: exports.TextAlignment.Center,
+            fontSize: widgetFontSize !== null && widgetFontSize !== void 0 ? widgetFontSize : fieldFontSize,
+            font,
+            bounds,
+        });
+        const downLayout = layoutSinglelineText(downText, {
+            alignment: exports.TextAlignment.Center,
+            fontSize: widgetFontSize !== null && widgetFontSize !== void 0 ? widgetFontSize : fieldFontSize,
+            font,
+            bounds,
+        });
+        // Update font size and color
+        const fontSize = Math.min(normalLayout.fontSize, downLayout.fontSize);
+        const textColor = (_e = widgetColor !== null && widgetColor !== void 0 ? widgetColor : fieldColor) !== null && _e !== void 0 ? _e : black;
+        if (widgetColor || widgetFontSize !== undefined) {
+            updateDefaultAppearance(widget, textColor, font, fontSize);
+        }
+        else {
+            updateDefaultAppearance(button.acroField, textColor, font, fontSize);
+        }
+        const options = {
+            x: 0 + borderWidth / 2,
+            y: 0 + borderWidth / 2,
+            width: width - borderWidth,
+            height: height - borderWidth,
+            borderWidth,
+            borderColor,
+            textColor,
+            font: font.name,
+            fontSize,
+        };
+        return {
+            normal: [
+                ...rotate,
+                ...drawButton({
+                    ...options,
+                    color: normalBackgroundColor,
+                    textLines: [normalLayout.line],
+                }),
+            ],
+            down: [
+                ...rotate,
+                ...drawButton({
+                    ...options,
+                    color: downBackgroundColor,
+                    textLines: [downLayout.line],
+                }),
+            ],
+        };
+    };
+    const defaultTextFieldAppearanceProvider = (textField, widget, font) => {
+        var _a, _b, _c, _d;
+        // The `/DA` entry can be at the widget or field level - so we handle both
+        const widgetColor = getDefaultColor(widget);
+        const fieldColor = getDefaultColor(textField.acroField);
+        const widgetFontSize = getDefaultFontSize(widget);
+        const fieldFontSize = getDefaultFontSize(textField.acroField);
+        const rectangle = widget.getRectangle();
+        const ap = widget.getAppearanceCharacteristics();
+        const bs = widget.getBorderStyle();
+        const text = (_a = textField.getText()) !== null && _a !== void 0 ? _a : '';
+        const borderWidth = (_b = bs === null || bs === void 0 ? void 0 : bs.getWidth()) !== null && _b !== void 0 ? _b : 0;
+        const rotation = reduceRotation(ap === null || ap === void 0 ? void 0 : ap.getRotation());
+        const { width, height } = adjustDimsForRotation(rectangle, rotation);
+        const rotate = rotateInPlace({ ...rectangle, rotation });
+        const black = rgb(0, 0, 0);
+        const borderColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBorderColor());
+        const normalBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor());
+        let textLines;
+        let fontSize;
+        const padding = textField.isCombed() ? 0 : 1;
+        const bounds = {
+            x: borderWidth + padding,
+            y: borderWidth + padding,
+            width: width - (borderWidth + padding) * 2,
+            height: height - (borderWidth + padding) * 2,
+        };
+        if (textField.isMultiline()) {
+            const layout = layoutMultilineText(text, {
+                alignment: textField.getAlignment(),
+                fontSize: widgetFontSize !== null && widgetFontSize !== void 0 ? widgetFontSize : fieldFontSize,
+                font,
+                bounds,
+            });
+            textLines = layout.lines;
+            fontSize = layout.fontSize;
+        }
+        else if (textField.isCombed()) {
+            const layout = layoutCombedText(text, {
+                fontSize: widgetFontSize !== null && widgetFontSize !== void 0 ? widgetFontSize : fieldFontSize,
+                font,
+                bounds,
+                cellCount: (_c = textField.getMaxLength()) !== null && _c !== void 0 ? _c : 0,
+            });
+            textLines = layout.cells;
+            fontSize = layout.fontSize;
+        }
+        else {
+            const layout = layoutSinglelineText(text, {
+                alignment: textField.getAlignment(),
+                fontSize: widgetFontSize !== null && widgetFontSize !== void 0 ? widgetFontSize : fieldFontSize,
+                font,
+                bounds,
+            });
+            textLines = [layout.line];
+            fontSize = layout.fontSize;
+        }
+        // Update font size and color
+        const textColor = (_d = widgetColor !== null && widgetColor !== void 0 ? widgetColor : fieldColor) !== null && _d !== void 0 ? _d : black;
+        if (widgetColor || widgetFontSize !== undefined) {
+            updateDefaultAppearance(widget, textColor, font, fontSize);
+        }
+        else {
+            updateDefaultAppearance(textField.acroField, textColor, font, fontSize);
+        }
+        const options = {
+            x: 0 + borderWidth / 2,
+            y: 0 + borderWidth / 2,
+            width: width - borderWidth,
+            height: height - borderWidth,
+            borderWidth: borderWidth !== null && borderWidth !== void 0 ? borderWidth : 0,
+            borderColor,
+            textColor,
+            font: font.name,
+            fontSize,
+            color: normalBackgroundColor,
+            textLines,
+            padding,
+        };
+        return [...rotate, ...drawTextField(options)];
+    };
+    const defaultDropdownAppearanceProvider = (dropdown, widget, font) => {
+        var _a, _b, _c;
+        // The `/DA` entry can be at the widget or field level - so we handle both
+        const widgetColor = getDefaultColor(widget);
+        const fieldColor = getDefaultColor(dropdown.acroField);
+        const widgetFontSize = getDefaultFontSize(widget);
+        const fieldFontSize = getDefaultFontSize(dropdown.acroField);
+        const rectangle = widget.getRectangle();
+        const ap = widget.getAppearanceCharacteristics();
+        const bs = widget.getBorderStyle();
+        const text = (_a = dropdown.getSelected()[0]) !== null && _a !== void 0 ? _a : '';
+        const borderWidth = (_b = bs === null || bs === void 0 ? void 0 : bs.getWidth()) !== null && _b !== void 0 ? _b : 0;
+        const rotation = reduceRotation(ap === null || ap === void 0 ? void 0 : ap.getRotation());
+        const { width, height } = adjustDimsForRotation(rectangle, rotation);
+        const rotate = rotateInPlace({ ...rectangle, rotation });
+        const black = rgb(0, 0, 0);
+        const borderColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBorderColor());
+        const normalBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor());
+        const padding = 1;
+        const bounds = {
+            x: borderWidth + padding,
+            y: borderWidth + padding,
+            width: width - (borderWidth + padding) * 2,
+            height: height - (borderWidth + padding) * 2,
+        };
+        const { line, fontSize } = layoutSinglelineText(text, {
+            alignment: exports.TextAlignment.Left,
+            fontSize: widgetFontSize !== null && widgetFontSize !== void 0 ? widgetFontSize : fieldFontSize,
+            font,
+            bounds,
+        });
+        // Update font size and color
+        const textColor = (_c = widgetColor !== null && widgetColor !== void 0 ? widgetColor : fieldColor) !== null && _c !== void 0 ? _c : black;
+        if (widgetColor || widgetFontSize !== undefined) {
+            updateDefaultAppearance(widget, textColor, font, fontSize);
+        }
+        else {
+            updateDefaultAppearance(dropdown.acroField, textColor, font, fontSize);
+        }
+        const options = {
+            x: 0 + borderWidth / 2,
+            y: 0 + borderWidth / 2,
+            width: width - borderWidth,
+            height: height - borderWidth,
+            borderWidth: borderWidth !== null && borderWidth !== void 0 ? borderWidth : 0,
+            borderColor,
+            textColor,
+            font: font.name,
+            fontSize,
+            color: normalBackgroundColor,
+            textLines: [line],
+            padding,
+        };
+        return [...rotate, ...drawTextField(options)];
+    };
+    const defaultOptionListAppearanceProvider = (optionList, widget, font) => {
+        var _a, _b;
+        // The `/DA` entry can be at the widget or field level - so we handle both
+        const widgetColor = getDefaultColor(widget);
+        const fieldColor = getDefaultColor(optionList.acroField);
+        const widgetFontSize = getDefaultFontSize(widget);
+        const fieldFontSize = getDefaultFontSize(optionList.acroField);
+        const rectangle = widget.getRectangle();
+        const ap = widget.getAppearanceCharacteristics();
+        const bs = widget.getBorderStyle();
+        const borderWidth = (_a = bs === null || bs === void 0 ? void 0 : bs.getWidth()) !== null && _a !== void 0 ? _a : 0;
+        const rotation = reduceRotation(ap === null || ap === void 0 ? void 0 : ap.getRotation());
+        const { width, height } = adjustDimsForRotation(rectangle, rotation);
+        const rotate = rotateInPlace({ ...rectangle, rotation });
+        const black = rgb(0, 0, 0);
+        const borderColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBorderColor());
+        const normalBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor());
+        const options = optionList.getOptions();
+        const selected = optionList.getSelected();
+        if (optionList.isSorted())
+            options.sort();
+        let text = '';
+        for (let idx = 0, len = options.length; idx < len; idx++) {
+            text += options[idx];
+            if (idx < len - 1)
+                text += '\n';
+        }
+        const padding = 1;
+        const bounds = {
+            x: borderWidth + padding,
+            y: borderWidth + padding,
+            width: width - (borderWidth + padding) * 2,
+            height: height - (borderWidth + padding) * 2,
+        };
+        const { lines, fontSize, lineHeight } = layoutMultilineText(text, {
+            alignment: exports.TextAlignment.Left,
+            fontSize: widgetFontSize !== null && widgetFontSize !== void 0 ? widgetFontSize : fieldFontSize,
+            font,
+            bounds,
+        });
+        const selectedLines = [];
+        for (let idx = 0, len = lines.length; idx < len; idx++) {
+            const line = lines[idx];
+            if (selected.includes(line.text))
+                selectedLines.push(idx);
+        }
+        const blue = rgb(153 / 255, 193 / 255, 218 / 255);
+        // Update font size and color
+        const textColor = (_b = widgetColor !== null && widgetColor !== void 0 ? widgetColor : fieldColor) !== null && _b !== void 0 ? _b : black;
+        if (widgetColor || widgetFontSize !== undefined) {
+            updateDefaultAppearance(widget, textColor, font, fontSize);
+        }
+        else {
+            updateDefaultAppearance(optionList.acroField, textColor, font, fontSize);
+        }
+        return [
+            ...rotate,
+            ...drawOptionList({
+                x: 0 + borderWidth / 2,
+                y: 0 + borderWidth / 2,
+                width: width - borderWidth,
+                height: height - borderWidth,
+                borderWidth: borderWidth !== null && borderWidth !== void 0 ? borderWidth : 0,
+                borderColor,
+                textColor,
+                font: font.name,
+                fontSize,
+                color: normalBackgroundColor,
+                textLines: lines,
+                lineHeight,
+                selectedColor: blue,
+                selectedLines,
+                padding,
+            }),
+        ];
+    };
+
     var dist = {};
 
     var lib = {};
@@ -27703,2089 +28992,6 @@ end\
     	}
     	exports.isBlock = isBlock; 
     } (dist));
-
-    class PDFSvg {
-        constructor(svg, images = {}) {
-            this.svg = svg;
-            this.images = images;
-        }
-    }
-
-    exports.BlendMode = void 0;
-    (function (BlendMode) {
-        BlendMode["Normal"] = "Normal";
-        BlendMode["Multiply"] = "Multiply";
-        BlendMode["Screen"] = "Screen";
-        BlendMode["Overlay"] = "Overlay";
-        BlendMode["Darken"] = "Darken";
-        BlendMode["Lighten"] = "Lighten";
-        BlendMode["ColorDodge"] = "ColorDodge";
-        BlendMode["ColorBurn"] = "ColorBurn";
-        BlendMode["HardLight"] = "HardLight";
-        BlendMode["SoftLight"] = "SoftLight";
-        BlendMode["Difference"] = "Difference";
-        BlendMode["Exclusion"] = "Exclusion";
-    })(exports.BlendMode || (exports.BlendMode = {}));
-
-    const identityMatrix = [1, 0, 0, 1, 0, 0];
-
-    const combineMatrix = ([a, b, c, d, e, f], [a2, b2, c2, d2, e2, f2]) => [
-        a * a2 + c * b2,
-        b * a2 + d * b2,
-        a * c2 + c * d2,
-        b * c2 + d * d2,
-        a * e2 + c * f2 + e,
-        b * e2 + d * f2 + f,
-    ];
-    const applyTransformation = ([a, b, c, d, e, f], { x, y }) => ({
-        x: a * x + c * y + e,
-        y: b * x + d * y + f,
-    });
-    const transformationToMatrix = (name, args) => {
-        switch (name) {
-            case 'scale':
-            case 'scaleX':
-            case 'scaleY': {
-                // [sx 0 0 sy 0 0]
-                const [sx, sy = sx] = args;
-                return [
-                    name === 'scaleY' ? 1 : sx,
-                    0,
-                    0,
-                    name === 'scaleX' ? 1 : sy,
-                    0,
-                    0,
-                ];
-            }
-            case 'translate':
-            case 'translateX':
-            case 'translateY': {
-                // [1 0 0 1 tx ty]
-                const [tx, ty = tx] = args;
-                // -ty is necessary because the pdf's y axis is inverted
-                return [
-                    1,
-                    0,
-                    0,
-                    1,
-                    name === 'translateY' ? 0 : tx,
-                    name === 'translateX' ? 0 : -ty,
-                ];
-            }
-            case 'rotate': {
-                // [cos(a) sin(a) -sin(a) cos(a) 0 0]
-                const [a, x = 0, y = 0] = args;
-                const t1 = transformationToMatrix('translate', [x, y]);
-                const t2 = transformationToMatrix('translate', [-x, -y]);
-                // -args[0] -> the '-' operator is necessary because the pdf rotation system is inverted
-                const aRadians = degreesToRadians(-a);
-                const r = [
-                    Math.cos(aRadians),
-                    Math.sin(aRadians),
-                    -Math.sin(aRadians),
-                    Math.cos(aRadians),
-                    0,
-                    0,
-                ];
-                // rotation around a point is the combination of: translate * rotate * (-translate)
-                return combineMatrix(combineMatrix(t1, r), t2);
-            }
-            case 'skewY':
-            case 'skewX': {
-                // [1 tan(a) 0 1 0 0]
-                // [1 0 tan(a) 1 0 0]
-                // -args[0] -> the '-' operator is necessary because the pdf rotation system is inverted
-                const a = degreesToRadians(-args[0]);
-                const skew = Math.tan(a);
-                const skewX = name === 'skewX' ? skew : 0;
-                const skewY = name === 'skewY' ? skew : 0;
-                return [1, skewY, skewX, 1, 0, 0];
-            }
-            case 'matrix': {
-                const [a, b, c, d, e, f] = args;
-                const r = transformationToMatrix('scale', [1, -1]);
-                const m = [a, b, c, d, e, f];
-                return combineMatrix(combineMatrix(r, m), r);
-            }
-            default:
-                return identityMatrix;
-        }
-    };
-    const combineTransformation = (matrix, name, args) => combineMatrix(matrix, transformationToMatrix(name, args));
-    const StrokeLineCapMap = {
-        butt: exports.LineCapStyle.Butt,
-        round: exports.LineCapStyle.Round,
-        square: exports.LineCapStyle.Projecting,
-    };
-    const FillRuleMap = {
-        evenodd: exports.FillRule.EvenOdd,
-        nonzero: exports.FillRule.NonZero,
-    };
-    const StrokeLineJoinMap = {
-        bevel: exports.LineJoinStyle.Bevel,
-        miter: exports.LineJoinStyle.Miter,
-        round: exports.LineJoinStyle.Round,
-    };
-    // TODO: Improve type system to require the correct props for each tagName.
-    /** methods to draw SVGElements onto a PDFPage */
-    const runnersToPage = (page, options) => ({
-        text(element) {
-            const anchor = element.svgAttributes.textAnchor;
-            const dominantBaseline = element.svgAttributes.dominantBaseline;
-            const text = element.text.trim().replace(/\s/g, ' ');
-            const fontSize = element.svgAttributes.fontSize || 12;
-            /** This will find the best font for the provided style in the list */
-            const getBestFont = (style, fonts) => {
-                const family = style.fontFamily;
-                if (!family)
-                    return undefined;
-                const isBold = style.fontWeight === 'bold' || Number(style.fontWeight) >= 700;
-                const isItalic = style.fontStyle === 'italic';
-                const getFont = (bold, italic, fontFamily) => fonts[fontFamily + (bold ? '_bold' : '') + (italic ? '_italic' : '')];
-                return (getFont(isBold, isItalic, family) ||
-                    getFont(isBold, false, family) ||
-                    getFont(false, isItalic, family) ||
-                    getFont(false, false, family) ||
-                    Object.keys(fonts).find((fontFamily) => fontFamily.startsWith(family)));
-            };
-            const font = options.fonts && getBestFont(element.svgAttributes, options.fonts);
-            const textWidth = (font || page.getFont()[0]).widthOfTextAtSize(text, fontSize);
-            const textHeight = (font || page.getFont()[0]).heightAtSize(fontSize);
-            const overLineHeight = (font || page.getFont()[0]).heightAtSize(fontSize, {
-                descender: false,
-            });
-            const offsetX = anchor === 'middle' ? textWidth / 2 : anchor === 'end' ? textWidth : 0;
-            let offsetY = 0;
-            switch (dominantBaseline) {
-                case 'middle':
-                case 'central':
-                    offsetY = overLineHeight - textHeight / 2;
-                    break;
-                case 'mathematical':
-                    offsetY = fontSize * 0.6; // Mathematical (approximation)
-                    break;
-                case 'hanging':
-                    offsetY = overLineHeight; // Hanging baseline is at the top
-                    break;
-                case 'text-before-edge':
-                    offsetY = fontSize; // Top of the text
-                    break;
-                case 'ideographic':
-                case 'text-after-edge':
-                    offsetY = overLineHeight - textHeight; // After edge (similar to text-bottom)
-                    break;
-                case 'text-top':
-                case 'text-bottom':
-                case 'auto':
-                case 'use-script':
-                case 'no-change':
-                case 'reset-size':
-                case 'alphabetic':
-                default:
-                    offsetY = 0; // Default to alphabetic if not specified
-                    break;
-            }
-            page.drawText(text, {
-                x: -offsetX,
-                y: -offsetY,
-                font,
-                // TODO: the font size should be correctly scaled too
-                size: fontSize,
-                color: element.svgAttributes.fill,
-                opacity: element.svgAttributes.fillOpacity,
-                matrix: element.svgAttributes.matrix,
-                clipSpaces: element.svgAttributes.clipSpaces,
-                blendMode: element.svgAttributes.blendMode || options.blendMode,
-            });
-        },
-        line(element) {
-            page.drawLine({
-                start: {
-                    x: element.svgAttributes.x1 || 0,
-                    y: -element.svgAttributes.y1 || 0,
-                },
-                end: {
-                    x: element.svgAttributes.x2 || 0,
-                    y: -element.svgAttributes.y2 || 0,
-                },
-                thickness: element.svgAttributes.strokeWidth,
-                color: element.svgAttributes.stroke,
-                opacity: element.svgAttributes.strokeOpacity,
-                lineCap: element.svgAttributes.strokeLineCap,
-                matrix: element.svgAttributes.matrix,
-                clipSpaces: element.svgAttributes.clipSpaces,
-                blendMode: element.svgAttributes.blendMode || options.blendMode,
-            });
-        },
-        path(element) {
-            if (!element.svgAttributes.d)
-                return;
-            // See https://jsbin.com/kawifomupa/edit?html,output and
-            page.drawSvgPath(element.svgAttributes.d, {
-                x: 0,
-                y: 0,
-                borderColor: element.svgAttributes.stroke,
-                borderWidth: element.svgAttributes.strokeWidth,
-                borderOpacity: element.svgAttributes.strokeOpacity,
-                borderLineCap: element.svgAttributes.strokeLineCap,
-                color: element.svgAttributes.fill,
-                opacity: element.svgAttributes.fillOpacity,
-                fillRule: element.svgAttributes.fillRule,
-                // drawSvgPath already handle the page y coord correctly, so we can undo the svg parsing correction
-                matrix: combineTransformation(element.svgAttributes.matrix, 'scale', [1, -1]),
-                clipSpaces: element.svgAttributes.clipSpaces,
-                blendMode: element.svgAttributes.blendMode || options.blendMode,
-            });
-        },
-        image(element) {
-            var _a, _b;
-            const { src } = element.svgAttributes;
-            if (!(src && ((_a = options.images) === null || _a === void 0 ? void 0 : _a[src])))
-                return;
-            const img = (_b = options.images) === null || _b === void 0 ? void 0 : _b[src];
-            const { x, y, width, height } = getFittingRectangle(img.width, img.height, element.svgAttributes.width || img.width, element.svgAttributes.height || img.height, element.svgAttributes.preserveAspectRatio);
-            page.drawImage(img, {
-                x,
-                y: -y - height,
-                width,
-                height,
-                opacity: element.svgAttributes.fillOpacity,
-                matrix: element.svgAttributes.matrix,
-                clipSpaces: element.svgAttributes.clipSpaces,
-                blendMode: element.svgAttributes.blendMode || options.blendMode,
-            });
-        },
-        rect(element) {
-            if (!element.svgAttributes.fill && !element.svgAttributes.stroke)
-                return;
-            page.drawRectangle({
-                x: 0,
-                y: 0,
-                width: element.svgAttributes.width,
-                height: element.svgAttributes.height,
-                rx: element.svgAttributes.rx,
-                ry: element.svgAttributes.ry,
-                borderColor: element.svgAttributes.stroke,
-                borderWidth: element.svgAttributes.strokeWidth,
-                borderOpacity: element.svgAttributes.strokeOpacity,
-                borderLineCap: element.svgAttributes.strokeLineCap,
-                color: element.svgAttributes.fill,
-                opacity: element.svgAttributes.fillOpacity,
-                matrix: combineTransformation(element.svgAttributes.matrix, 'translateY', [element.svgAttributes.height]),
-                clipSpaces: element.svgAttributes.clipSpaces,
-                blendMode: element.svgAttributes.blendMode || options.blendMode,
-            });
-        },
-        ellipse(element) {
-            page.drawEllipse({
-                x: element.svgAttributes.cx || 0,
-                y: -(element.svgAttributes.cy || 0),
-                xScale: element.svgAttributes.rx,
-                yScale: element.svgAttributes.ry,
-                borderColor: element.svgAttributes.stroke,
-                borderWidth: element.svgAttributes.strokeWidth,
-                borderOpacity: element.svgAttributes.strokeOpacity,
-                borderLineCap: element.svgAttributes.strokeLineCap,
-                color: element.svgAttributes.fill,
-                opacity: element.svgAttributes.fillOpacity,
-                matrix: element.svgAttributes.matrix,
-                clipSpaces: element.svgAttributes.clipSpaces,
-                blendMode: element.svgAttributes.blendMode || options.blendMode,
-            });
-        },
-        circle(element) {
-            return runnersToPage(page, options).ellipse(element);
-        },
-    });
-    const styleOrAttribute = (attributes, style, attribute, def) => {
-        const value = style[attribute] || attributes[attribute];
-        if (!value && typeof def !== 'undefined')
-            return def;
-        return value;
-    };
-    const parseStyles = (style) => {
-        const cssRegex = /([^:\s]+)*\s*:\s*([^;]+)/g;
-        const css = {};
-        let match = cssRegex.exec(style);
-        while (match != null) {
-            css[match[1]] = match[2];
-            match = cssRegex.exec(style);
-        }
-        return css;
-    };
-    const parseColor = (color, inherited) => {
-        if (!color || color.length === 0)
-            return undefined;
-        if (['none', 'transparent'].includes(color))
-            return undefined;
-        if (color === 'currentColor')
-            return inherited || parseColor('#000000');
-        const parsedColor = colorString(color);
-        return {
-            rgb: parsedColor.rgb,
-            alpha: parsedColor.alpha ? parsedColor.alpha + '' : undefined,
-        };
-    };
-    const parseAttributes = (element, inherited, matrix) => {
-        var _a, _b, _c, _d;
-        const attributes = element.attributes;
-        const style = parseStyles(attributes.style);
-        const widthRaw = styleOrAttribute(attributes, style, 'width', '');
-        const heightRaw = styleOrAttribute(attributes, style, 'height', '');
-        const fillRaw = parseColor(styleOrAttribute(attributes, style, 'fill'));
-        const fillOpacityRaw = styleOrAttribute(attributes, style, 'fill-opacity');
-        const opacityRaw = styleOrAttribute(attributes, style, 'opacity');
-        const strokeRaw = parseColor(styleOrAttribute(attributes, style, 'stroke'));
-        const strokeOpacityRaw = styleOrAttribute(attributes, style, 'stroke-opacity');
-        const strokeLineCapRaw = styleOrAttribute(attributes, style, 'stroke-linecap');
-        const strokeLineJoinRaw = styleOrAttribute(attributes, style, 'stroke-linejoin');
-        const fillRuleRaw = styleOrAttribute(attributes, style, 'fill-rule');
-        const strokeWidthRaw = styleOrAttribute(attributes, style, 'stroke-width');
-        const fontFamilyRaw = styleOrAttribute(attributes, style, 'font-family');
-        const fontStyleRaw = styleOrAttribute(attributes, style, 'font-style');
-        const fontWeightRaw = styleOrAttribute(attributes, style, 'font-weight');
-        const fontSizeRaw = styleOrAttribute(attributes, style, 'font-size');
-        const blendModeRaw = styleOrAttribute(attributes, style, 'mix-blend-mode');
-        const width = parseFloatValue(widthRaw, inherited.width);
-        const height = parseFloatValue(heightRaw, inherited.height);
-        const x = parseFloatValue(attributes.x, inherited.width);
-        const y = parseFloatValue(attributes.y, inherited.height);
-        const x1 = parseFloatValue(attributes.x1, inherited.width);
-        const x2 = parseFloatValue(attributes.x2, inherited.width);
-        const y1 = parseFloatValue(attributes.y1, inherited.height);
-        const y2 = parseFloatValue(attributes.y2, inherited.height);
-        const cx = parseFloatValue(attributes.cx, inherited.width);
-        const cy = parseFloatValue(attributes.cy, inherited.height);
-        const rx = parseFloatValue(attributes.rx || attributes.r, inherited.width);
-        const ry = parseFloatValue(attributes.ry || attributes.r, inherited.height);
-        const newInherited = {
-            fontFamily: fontFamilyRaw || inherited.fontFamily,
-            fontStyle: fontStyleRaw || inherited.fontStyle,
-            fontWeight: fontWeightRaw || inherited.fontWeight,
-            fontSize: (_a = parseFloatValue(fontSizeRaw)) !== null && _a !== void 0 ? _a : inherited.fontSize,
-            fill: (fillRaw === null || fillRaw === void 0 ? void 0 : fillRaw.rgb) || inherited.fill,
-            fillOpacity: (_b = parseFloatValue(fillOpacityRaw || opacityRaw || (fillRaw === null || fillRaw === void 0 ? void 0 : fillRaw.alpha))) !== null && _b !== void 0 ? _b : inherited.fillOpacity,
-            fillRule: FillRuleMap[fillRuleRaw] || inherited.fillRule,
-            stroke: (strokeRaw === null || strokeRaw === void 0 ? void 0 : strokeRaw.rgb) || inherited.stroke,
-            strokeWidth: (_c = parseFloatValue(strokeWidthRaw)) !== null && _c !== void 0 ? _c : inherited.strokeWidth,
-            strokeOpacity: (_d = parseFloatValue(strokeOpacityRaw || opacityRaw || (strokeRaw === null || strokeRaw === void 0 ? void 0 : strokeRaw.alpha))) !== null && _d !== void 0 ? _d : inherited.strokeOpacity,
-            strokeLineCap: StrokeLineCapMap[strokeLineCapRaw] || inherited.strokeLineCap,
-            strokeLineJoin: StrokeLineJoinMap[strokeLineJoinRaw] || inherited.strokeLineJoin,
-            width: width || inherited.width,
-            height: height || inherited.height,
-            rotation: inherited.rotation,
-            viewBox: element.tagName === 'svg' && element.attributes.viewBox
-                ? parseViewBox(element.attributes.viewBox)
-                : inherited.viewBox,
-            blendMode: parseBlendMode(blendModeRaw) || inherited.blendMode,
-        };
-        const svgAttributes = {
-            src: attributes.src || attributes.href || attributes['xlink:href'],
-            textAnchor: attributes['text-anchor'],
-            dominantBaseline: attributes['dominant-baseline'],
-            preserveAspectRatio: attributes.preserveAspectRatio,
-        };
-        let transformList = attributes.transform || '';
-        // Handle transformations set as direct attributes
-        [
-            'translate',
-            'translateX',
-            'translateY',
-            'skewX',
-            'skewY',
-            'rotate',
-            'scale',
-            'scaleX',
-            'scaleY',
-            'matrix',
-        ].forEach((name) => {
-            if (attributes[name]) {
-                transformList = attributes[name] + ' ' + transformList;
-            }
-        });
-        // Convert x/y as if it was a translation
-        if (x || y) {
-            transformList = transformList + `translate(${x || 0} ${y || 0}) `;
-        }
-        let newMatrix = matrix;
-        // Apply the transformations
-        if (transformList) {
-            const regexTransform = /(\w+)\((.+?)\)/g;
-            let parsed = regexTransform.exec(transformList);
-            while (parsed !== null) {
-                const [, name, rawArgs] = parsed;
-                const args = (rawArgs || '')
-                    .split(/\s*,\s*|\s+/)
-                    .filter((value) => value.length > 0)
-                    .map((value) => parseFloat(value));
-                newMatrix = combineTransformation(newMatrix, name, args);
-                parsed = regexTransform.exec(transformList);
-            }
-        }
-        svgAttributes.x = x;
-        svgAttributes.y = y;
-        if (attributes.cx || attributes.cy) {
-            svgAttributes.cx = cx;
-            svgAttributes.cy = cy;
-        }
-        if (attributes.rx || attributes.ry || attributes.r) {
-            svgAttributes.rx = rx;
-            svgAttributes.ry = ry;
-        }
-        if (attributes.x1 || attributes.y1) {
-            svgAttributes.x1 = x1;
-            svgAttributes.y1 = y1;
-        }
-        if (attributes.x2 || attributes.y2) {
-            svgAttributes.x2 = x2;
-            svgAttributes.y2 = y2;
-        }
-        if (attributes.width || attributes.height) {
-            svgAttributes.width = width !== null && width !== void 0 ? width : inherited.width;
-            svgAttributes.height = height !== null && height !== void 0 ? height : inherited.height;
-        }
-        if (attributes.d) {
-            newMatrix = combineTransformation(newMatrix, 'scale', [1, -1]);
-            svgAttributes.d = attributes.d;
-        }
-        if (fontSizeRaw && newInherited.fontSize) {
-            newInherited.fontSize = newInherited.fontSize;
-        }
-        if (newInherited.fontFamily) {
-            // Handle complex fontFamily like `"Linux Libertine O", serif`
-            const inner = newInherited.fontFamily.match(/^"(.*?)"|^'(.*?)'/);
-            if (inner)
-                newInherited.fontFamily = inner[1] || inner[2];
-        }
-        if (newInherited.strokeWidth) {
-            svgAttributes.strokeWidth = newInherited.strokeWidth;
-        }
-        return {
-            inherited: newInherited,
-            svgAttributes,
-            tagName: element.tagName,
-            matrix: newMatrix,
-        };
-    };
-    const getFittingRectangle = (originalWidth, originalHeight, targetWidth, targetHeight, preserveAspectRatio) => {
-        if (preserveAspectRatio === 'none') {
-            return { x: 0, y: 0, width: targetWidth, height: targetHeight };
-        }
-        const originalRatio = originalWidth / originalHeight;
-        const targetRatio = targetWidth / targetHeight;
-        const width = targetRatio > originalRatio ? originalRatio * targetHeight : targetWidth;
-        const height = targetRatio >= originalRatio ? targetHeight : targetWidth / originalRatio;
-        const dx = targetWidth - width;
-        const dy = targetHeight - height;
-        const [x, y] = (() => {
-            switch (preserveAspectRatio) {
-                case 'xMinYMin':
-                    return [0, 0];
-                case 'xMidYMin':
-                    return [dx / 2, 0];
-                case 'xMaxYMin':
-                    return [dx, dy / 2];
-                case 'xMinYMid':
-                    return [0, dy];
-                case 'xMaxYMid':
-                    return [dx, dy / 2];
-                case 'xMinYMax':
-                    return [0, dy];
-                case 'xMidYMax':
-                    return [dx / 2, dy];
-                case 'xMaxYMax':
-                    return [dx, dy];
-                case 'xMidYMid':
-                default:
-                    return [dx / 2, dy / 2];
-            }
-        })();
-        return { x, y, width, height };
-    };
-    // this function should reproduce the behavior described here: https://www.w3.org/TR/SVG11/coords.html#ViewBoxAttribute
-    const getAspectRatioTransformation = (matrix, originalWidth, originalHeight, targetWidth, targetHeight, preserveAspectRatioProp = 'xMidYMid') => {
-        const [preserveAspectRatio, meetOrSlice = 'meet'] = preserveAspectRatioProp.split(' ');
-        const scaleX = targetWidth / originalWidth;
-        const scaleY = targetHeight / originalHeight;
-        const boxScale = combineTransformation(matrix, 'scale', [scaleX, scaleY]);
-        if (preserveAspectRatio === 'none') {
-            return {
-                clipBox: boxScale,
-                content: boxScale,
-            };
-        }
-        const scale = meetOrSlice === 'slice'
-            ? Math.max(scaleX, scaleY)
-            : // since 'meet' is the default value, any value other than 'slice' should be handled as 'meet'
-                Math.min(scaleX, scaleY);
-        const dx = targetWidth - originalWidth * scale;
-        const dy = targetHeight - originalHeight * scale;
-        const [x, y] = (() => {
-            switch (preserveAspectRatio) {
-                case 'xMinYMin':
-                    return [0, 0];
-                case 'xMidYMin':
-                    return [dx / 2, 0];
-                case 'xMaxYMin':
-                    return [dx, dy / 2];
-                case 'xMinYMid':
-                    return [0, dy];
-                case 'xMaxYMid':
-                    return [dx, dy / 2];
-                case 'xMinYMax':
-                    return [0, dy];
-                case 'xMidYMax':
-                    return [dx / 2, dy];
-                case 'xMaxYMax':
-                    return [dx, dy];
-                case 'xMidYMid':
-                default:
-                    return [dx / 2, dy / 2];
-            }
-        })();
-        const contentTransform = combineTransformation(combineTransformation(matrix, 'translate', [x, y]), 'scale', [scale]);
-        return {
-            clipBox: boxScale,
-            content: contentTransform,
-        };
-    };
-    const parseHTMLNode = (node, inherited, matrix, clipSpaces) => {
-        if (node.nodeType === dist.NodeType.COMMENT_NODE)
-            return [];
-        else if (node.nodeType === dist.NodeType.TEXT_NODE)
-            return [];
-        else if (node.tagName === 'g') {
-            return parseGroupNode(node, inherited, matrix, clipSpaces);
-        }
-        else if (node.tagName === 'svg') {
-            return parseSvgNode(node, inherited, matrix, clipSpaces);
-        }
-        else {
-            if (node.tagName === 'polygon') {
-                node.tagName = 'path';
-                node.attributes.d = `M${node.attributes.points}Z`;
-                delete node.attributes.points;
-            }
-            const attributes = parseAttributes(node, inherited, matrix);
-            const svgAttributes = {
-                ...attributes.inherited,
-                ...attributes.svgAttributes,
-                matrix: attributes.matrix,
-                clipSpaces,
-            };
-            Object.assign(node, { svgAttributes });
-            return [node];
-        }
-    };
-    const parseSvgNode = (node, inherited, matrix, clipSpaces) => {
-        var _a, _b;
-        // if the width/height aren't set, the svg will have the same dimension as the current drawing space
-        /* tslint:disable:no-unused-expression */
-        (_a = node.attributes.width) !== null && _a !== void 0 ? _a : node.setAttribute('width', inherited.viewBox.width + '');
-        (_b = node.attributes.height) !== null && _b !== void 0 ? _b : node.setAttribute('height', inherited.viewBox.height + '');
-        /* tslint:enable:no-unused-expression */
-        const attributes = parseAttributes(node, inherited, matrix);
-        const result = [];
-        const viewBox = node.attributes.viewBox
-            ? parseViewBox(node.attributes.viewBox)
-            : node.attributes.width && node.attributes.height
-                ? parseViewBox(`0 0 ${node.attributes.width} ${node.attributes.height}`)
-                : inherited.viewBox;
-        const x = parseFloat(node.attributes.x) || 0;
-        const y = parseFloat(node.attributes.y) || 0;
-        let newMatrix = combineTransformation(matrix, 'translate', [x, y]);
-        const { clipBox: clipBoxTransform, content: contentTransform } = getAspectRatioTransformation(newMatrix, viewBox.width, viewBox.height, parseFloat(node.attributes.width), parseFloat(node.attributes.height), node.attributes.preserveAspectRatio);
-        const topLeft = applyTransformation(clipBoxTransform, {
-            x: 0,
-            y: 0,
-        });
-        const topRight = applyTransformation(clipBoxTransform, {
-            x: viewBox.width,
-            y: 0,
-        });
-        const bottomRight = applyTransformation(clipBoxTransform, {
-            x: viewBox.width,
-            y: -viewBox.height,
-        });
-        const bottomLeft = applyTransformation(clipBoxTransform, {
-            x: 0,
-            y: -viewBox.height,
-        });
-        const baseClipSpace = {
-            topLeft,
-            topRight,
-            bottomRight,
-            bottomLeft,
-        };
-        newMatrix = combineTransformation(contentTransform, 'translate', [
-            -viewBox.x,
-            -viewBox.y,
-        ]);
-        node.childNodes.forEach((child) => {
-            const parsedNodes = parseHTMLNode(child, { ...attributes.inherited, viewBox }, newMatrix, [...clipSpaces, baseClipSpace]);
-            result.push(...parsedNodes);
-        });
-        return result;
-    };
-    const parseGroupNode = (node, inherited, matrix, clipSpaces) => {
-        const attributes = parseAttributes(node, inherited, matrix);
-        const result = [];
-        node.childNodes.forEach((child) => {
-            result.push(...parseHTMLNode(child, attributes.inherited, attributes.matrix, clipSpaces));
-        });
-        return result;
-    };
-    const parseFloatValue = (value, reference = 1) => {
-        if (!value)
-            return undefined;
-        const v = parseFloat(value);
-        if (isNaN(v))
-            return undefined;
-        if (value.endsWith('%'))
-            return (v * reference) / 100;
-        return v;
-    };
-    const parseBlendMode = (blendMode) => {
-        switch (blendMode) {
-            case 'normal':
-                return exports.BlendMode.Normal;
-            case 'multiply':
-                return exports.BlendMode.Multiply;
-            case 'screen':
-                return exports.BlendMode.Screen;
-            case 'overlay':
-                return exports.BlendMode.Overlay;
-            case 'darken':
-                return exports.BlendMode.Darken;
-            case 'lighten':
-                return exports.BlendMode.Lighten;
-            case 'color-dodge':
-                return exports.BlendMode.ColorDodge;
-            case 'color-burn':
-                return exports.BlendMode.ColorBurn;
-            case 'hard-light':
-                return exports.BlendMode.HardLight;
-            case 'soft-light':
-                return exports.BlendMode.SoftLight;
-            case 'difference':
-                return exports.BlendMode.Difference;
-            case 'exclusion':
-                return exports.BlendMode.Exclusion;
-            default:
-                return undefined;
-        }
-    };
-    const parseViewBox = (viewBox) => {
-        if (!viewBox)
-            return;
-        const [xViewBox = 0, yViewBox = 0, widthViewBox = 1, heightViewBox = 1] = (viewBox || '')
-            .split(' ')
-            .map((val) => parseFloatValue(val));
-        return {
-            x: xViewBox,
-            y: yViewBox,
-            width: widthViewBox,
-            height: heightViewBox,
-        };
-    };
-    const parse = (svg, { width, height, fontSize }, size, matrix) => {
-        const htmlElement = dist.parse(svg).firstChild;
-        if (width)
-            htmlElement.setAttribute('width', width + '');
-        if (height)
-            htmlElement.setAttribute('height', height + '');
-        if (fontSize)
-            htmlElement.setAttribute('font-size', fontSize + '');
-        // TODO: what should be the default viewBox?
-        return parseHTMLNode(htmlElement, {
-            ...size,
-            viewBox: parseViewBox(htmlElement.attributes.viewBox || '0 0 1 1'),
-        }, matrix, []);
-    };
-    const drawSvg = (page, svg, options) => {
-        const pdfSvg = typeof svg === 'string' ? new PDFSvg(svg) : svg;
-        if (!pdfSvg.svg)
-            return;
-        const size = page.getSize();
-        const svgNode = dist.parse(pdfSvg.svg).querySelector('svg');
-        if (!svgNode) {
-            return console.error('This is not an svg. Ignoring: ' + pdfSvg.svg);
-        }
-        const attributes = svgNode.attributes;
-        const style = parseStyles(attributes.style);
-        const widthRaw = styleOrAttribute(attributes, style, 'width', '');
-        const heightRaw = styleOrAttribute(attributes, style, 'height', '');
-        const width = options.width !== undefined ? options.width : parseFloat(widthRaw);
-        const height = options.height !== undefined ? options.height : parseFloat(heightRaw);
-        // it's important to add the viewBox to allow svg resizing through the options
-        if (!attributes.viewBox) {
-            svgNode.setAttribute('viewBox', `0 0 ${widthRaw || width} ${heightRaw || height}`);
-        }
-        if (options.width || options.height) {
-            if (width !== undefined)
-                style.width = width + (isNaN(width) ? '' : 'px');
-            if (height !== undefined) {
-                style.height = height + (isNaN(height) ? '' : 'px');
-            }
-            svgNode.setAttribute('style', Object.entries(style) // tslint:disable-line
-                .map(([key, val]) => `${key}:${val};`)
-                .join(''));
-        }
-        const baseTransformation = [
-            1,
-            0,
-            0,
-            1,
-            options.x || 0,
-            options.y || 0,
-        ];
-        const elements = parse(svgNode.outerHTML, options, size, baseTransformation);
-        const runners = runnersToPage(page, { ...options, images: pdfSvg.images });
-        elements.forEach((elt) => {
-            // uncomment these lines to draw the clipSpaces
-            // elt.svgAttributes.clipSpaces.forEach(space => {
-            //   page.drawLine({
-            //     start: space.topLeft,
-            //     end: space.topRight,
-            //     color: parseColor('#000000')?.rgb,
-            //     thickness: 1
-            //   })
-            var _a;
-            //   page.drawLine({
-            //     start: space.topRight,
-            //     end: space.bottomRight,
-            //     color: parseColor('#000000')?.rgb,
-            //     thickness: 1
-            //   })
-            //   page.drawLine({
-            //     start: space.bottomRight,
-            //     end: space.bottomLeft,
-            //     color: parseColor('#000000')?.rgb,
-            //     thickness: 1
-            //   })
-            //   page.drawLine({
-            //     start: space.bottomLeft,
-            //     end: space.topLeft,
-            //     color: parseColor('#000000')?.rgb,
-            //     thickness: 1
-            //   })
-            // })
-            (_a = runners[elt.tagName]) === null || _a === void 0 ? void 0 : _a.call(runners, elt);
-        });
-    };
-
-    const clipSpace = ({ topLeft, topRight, bottomRight, bottomLeft }) => [
-        moveTo(topLeft.x, topLeft.y),
-        lineTo(topRight.x, topRight.y),
-        lineTo(bottomRight.x, bottomRight.y),
-        lineTo(bottomLeft.x, bottomLeft.y),
-        closePath(),
-        clip(),
-        endPath(),
-    ];
-    const clipSpaces = (spaces) => spaces.flatMap(clipSpace);
-    const drawText = (line, options) => [
-        pushGraphicsState(),
-        options.graphicsState && setGraphicsState(options.graphicsState),
-        beginText(),
-        setFillingColor(options.color),
-        setFontAndSize(options.font, options.size),
-        options.strokeWidth && setLineWidth(options.strokeWidth),
-        options.strokeColor && setStrokingColor(options.strokeColor),
-        options.renderMode && setTextRenderingMode(options.renderMode),
-        rotateAndSkewTextRadiansAndTranslate(toRadians(options.rotate), toRadians(options.xSkew), toRadians(options.ySkew), options.x, options.y),
-        showText(line),
-        endText(),
-        popGraphicsState(),
-    ].filter(Boolean);
-    const drawLinesOfText = (lines, options) => {
-        const operators = [
-            pushGraphicsState(),
-            options.graphicsState && setGraphicsState(options.graphicsState),
-            ...(options.clipSpaces ? clipSpaces(options.clipSpaces) : []),
-            options.matrix && concatTransformationMatrix(...options.matrix),
-            beginText(),
-            setFillingColor(options.color),
-            setFontAndSize(options.font, options.size),
-            setLineHeight(options.lineHeight),
-            options.strokeWidth && setLineWidth(options.strokeWidth),
-            options.strokeColor && setStrokingColor(options.strokeColor),
-            options.renderMode && setTextRenderingMode(options.renderMode),
-            rotateAndSkewTextRadiansAndTranslate(toRadians(options.rotate), toRadians(options.xSkew), toRadians(options.ySkew), options.x, options.y),
-        ].filter(Boolean);
-        for (let idx = 0, len = lines.length; idx < len; idx++) {
-            operators.push(showText(lines[idx]), nextLine());
-        }
-        operators.push(endText(), popGraphicsState());
-        return operators;
-    };
-    const drawImage = (name, options) => [
-        pushGraphicsState(),
-        options.graphicsState && setGraphicsState(options.graphicsState),
-        ...(options.clipSpaces ? clipSpaces(options.clipSpaces) : []),
-        options.matrix && concatTransformationMatrix(...options.matrix),
-        translate(options.x, options.y),
-        rotateRadians(toRadians(options.rotate)),
-        scale(options.width, options.height),
-        skewRadians(toRadians(options.xSkew), toRadians(options.ySkew)),
-        drawObject(name),
-        popGraphicsState(),
-    ].filter(Boolean);
-    const drawPage = (name, options) => [
-        pushGraphicsState(),
-        options.graphicsState && setGraphicsState(options.graphicsState),
-        translate(options.x, options.y),
-        rotateRadians(toRadians(options.rotate)),
-        scale(options.xScale, options.yScale),
-        skewRadians(toRadians(options.xSkew), toRadians(options.ySkew)),
-        drawObject(name),
-        popGraphicsState(),
-    ].filter(Boolean);
-    const drawLine = (options) => {
-        var _a, _b;
-        return [
-            pushGraphicsState(),
-            options.graphicsState && setGraphicsState(options.graphicsState),
-            ...(options.clipSpaces ? clipSpaces(options.clipSpaces) : []),
-            options.matrix && concatTransformationMatrix(...options.matrix),
-            options.color && setStrokingColor(options.color),
-            setLineWidth(options.thickness),
-            setDashPattern((_a = options.dashArray) !== null && _a !== void 0 ? _a : [], (_b = options.dashPhase) !== null && _b !== void 0 ? _b : 0),
-            moveTo(options.start.x, options.start.y),
-            options.lineCap && setLineCap(options.lineCap),
-            moveTo(options.start.x, options.start.y),
-            lineTo(options.end.x, options.end.y),
-            stroke(),
-            popGraphicsState(),
-        ].filter(Boolean);
-    };
-    const KAPPA = 4.0 * ((Math.sqrt(2) - 1.0) / 3.0);
-    const drawRectangle = (options) => {
-        const { width, height, xSkew, ySkew, rotate, matrix } = options;
-        const w = typeof width === 'number' ? width : width.asNumber();
-        const h = typeof height === 'number' ? height : height.asNumber();
-        const x = typeof options.x === 'number' ? options.x : options.x.asNumber();
-        const y = typeof options.y === 'number' ? options.y : options.y.asNumber();
-        // Ensure rx and ry are within bounds
-        const rx = Math.max(0, Math.min(options.rx || 0, w / 2));
-        const ry = Math.max(0, Math.min(options.ry || 0, h / 2));
-        // Generate the SVG path
-        const d = rx > 0 || ry > 0
-            ? [
-                `M ${rx},0`,
-                `H ${w - rx}`,
-                `C ${w - rx * (1 - KAPPA)},0 ${w},${ry * (1 - KAPPA)} ${w},${ry}`,
-                `V ${h - ry}`,
-                `C ${w},${h - ry * (1 - KAPPA)} ${w - rx * (1 - KAPPA)},${h} ${w - rx},${h}`,
-                `H ${rx}`,
-                `C ${rx * (1 - KAPPA)},${h} 0,${h - ry * (1 - KAPPA)} 0,${h - ry}`,
-                `V ${ry}`,
-                `C 0,${ry * (1 - KAPPA)} ${rx * (1 - KAPPA)},0 ${rx},0`,
-                `Z`,
-            ].join(' ')
-            : `M 0,0 V ${h} H ${w} V 0 Z`;
-        console.log(options);
-        console.log(d);
-        // the drawRectangle applies the rotation around its anchor point (bottom-left), it means that the translation should be applied before the rotation
-        // invert the y parameter because transformationToMatrix expects parameters from an svg space. The same is valid for rotate and ySkew
-        let fullMatrix = combineMatrix(matrix || identityMatrix, transformationToMatrix('translate', [x, -y]));
-        // Transformation to apply rotation and skew
-        if (rotate) {
-            fullMatrix = combineMatrix(fullMatrix, transformationToMatrix('rotate', [-toDegrees(rotate)]));
-        }
-        if (xSkew) {
-            fullMatrix = combineMatrix(fullMatrix, transformationToMatrix('skewX', [toDegrees(xSkew)]));
-        }
-        if (ySkew) {
-            fullMatrix = combineMatrix(fullMatrix, transformationToMatrix('skewY', [-toDegrees(ySkew)]));
-        }
-        // move the rectangle upward so that the (x, y) coord is bottom-left
-        fullMatrix = combineMatrix(fullMatrix, transformationToMatrix('translateY', [-h]));
-        return drawSvgPath(d, {
-            ...options,
-            x: 0,
-            y: 0,
-            rotate: degrees(0),
-            scale: 1,
-            matrix: fullMatrix,
-        });
-    };
-    /** @deprecated */
-    const drawEllipsePath = (config) => {
-        let x = asNumber(config.x);
-        let y = asNumber(config.y);
-        const xScale = asNumber(config.xScale);
-        const yScale = asNumber(config.yScale);
-        x -= xScale;
-        y -= yScale;
-        const ox = xScale * KAPPA;
-        const oy = yScale * KAPPA;
-        const xe = x + xScale * 2;
-        const ye = y + yScale * 2;
-        const xm = x + xScale;
-        const ym = y + yScale;
-        return [
-            pushGraphicsState(),
-            moveTo(x, ym),
-            appendBezierCurve(x, ym - oy, xm - ox, y, xm, y),
-            appendBezierCurve(xm + ox, y, xe, ym - oy, xe, ym),
-            appendBezierCurve(xe, ym + oy, xm + ox, ye, xm, ye),
-            appendBezierCurve(xm - ox, ye, x, ym + oy, x, ym),
-            popGraphicsState(),
-        ];
-    };
-    const drawEllipseCurves = (config) => {
-        const centerX = asNumber(config.x);
-        const centerY = asNumber(config.y);
-        const xScale = asNumber(config.xScale);
-        const yScale = asNumber(config.yScale);
-        const x = -xScale;
-        const y = -yScale;
-        const ox = xScale * KAPPA;
-        const oy = yScale * KAPPA;
-        const xe = x + xScale * 2;
-        const ye = y + yScale * 2;
-        const xm = x + xScale;
-        const ym = y + yScale;
-        return [
-            translate(centerX, centerY),
-            rotateRadians(toRadians(config.rotate)),
-            moveTo(x, ym),
-            appendBezierCurve(x, ym - oy, xm - ox, y, xm, y),
-            appendBezierCurve(xm + ox, y, xe, ym - oy, xe, ym),
-            appendBezierCurve(xe, ym + oy, xm + ox, ye, xm, ye),
-            appendBezierCurve(xm - ox, ye, x, ym + oy, x, ym),
-        ];
-    };
-    const drawEllipse = (options) => {
-        var _a, _b, _c;
-        return [
-            pushGraphicsState(),
-            options.graphicsState && setGraphicsState(options.graphicsState),
-            options.color && setFillingColor(options.color),
-            options.borderColor && setStrokingColor(options.borderColor),
-            ...(options.clipSpaces ? clipSpaces(options.clipSpaces) : []),
-            options.matrix && concatTransformationMatrix(...options.matrix),
-            setLineWidth(options.borderWidth),
-            options.borderLineCap && setLineCap(options.borderLineCap),
-            setDashPattern((_a = options.borderDashArray) !== null && _a !== void 0 ? _a : [], (_b = options.borderDashPhase) !== null && _b !== void 0 ? _b : 0),
-            // The `drawEllipsePath` branch is only here for backwards compatibility.
-            // See https://github.com/Hopding/pdf-lib/pull/511#issuecomment-667685655.
-            ...(options.rotate === undefined
-                ? drawEllipsePath({
-                    x: options.x,
-                    y: options.y,
-                    xScale: options.xScale,
-                    yScale: options.yScale,
-                })
-                : drawEllipseCurves({
-                    x: options.x,
-                    y: options.y,
-                    xScale: options.xScale,
-                    yScale: options.yScale,
-                    rotate: (_c = options.rotate) !== null && _c !== void 0 ? _c : degrees(0),
-                })),
-            // prettier-ignore
-            options.color && options.borderWidth ? fillAndStroke()
-                : options.color ? fill()
-                    : options.borderColor ? stroke()
-                        : closePath(),
-            popGraphicsState(),
-        ].filter(Boolean);
-    };
-    const drawSvgPath = (path, options) => {
-        var _a, _b, _c;
-        return [
-            pushGraphicsState(),
-            options.graphicsState && setGraphicsState(options.graphicsState),
-            ...(options.clipSpaces ? clipSpaces(options.clipSpaces) : []),
-            options.matrix && concatTransformationMatrix(...options.matrix),
-            translate(options.x, options.y),
-            rotateRadians(toRadians((_a = options.rotate) !== null && _a !== void 0 ? _a : degrees(0))),
-            // SVG path Y axis is opposite pdf-lib's
-            options.scale ? scale(options.scale, -options.scale) : scale(1, -1),
-            options.color && setFillingColor(options.color),
-            options.borderColor && setStrokingColor(options.borderColor),
-            options.borderWidth && setLineWidth(options.borderWidth),
-            options.borderLineCap && setLineCap(options.borderLineCap),
-            setDashPattern((_b = options.borderDashArray) !== null && _b !== void 0 ? _b : [], (_c = options.borderDashPhase) !== null && _c !== void 0 ? _c : 0),
-            ...svgPathToOperators(path),
-            // prettier-ignore
-            options.color && options.borderWidth ? fillAndStroke()
-                : options.color ? options.fillRule === exports.FillRule.EvenOdd ? fillEvenOdd() : fill()
-                    : options.borderColor ? stroke()
-                        : closePath(),
-            popGraphicsState(),
-        ].filter(Boolean);
-    };
-    const drawCheckMark = (options) => {
-        const size = asNumber(options.size);
-        /*********************** Define Check Mark Points ***************************/
-        // A check mark is defined by three points in some coordinate space. Here, we
-        // define these points in a unit coordinate system, where the range of the x
-        // and y axis are both [-1, 1].
-        //
-        // Note that we do not hard code `p1y` in case we wish to change the
-        // size/shape of the check mark in the future. We want the check mark to
-        // always form a right angle. This means that the dot product between (p1-p2)
-        // and (p3-p2) should be zero:
-        //
-        //   (p1x-p2x) * (p3x-p2x) + (p1y-p2y) * (p3y-p2y) = 0
-        //
-        // We can now rejigger this equation to solve for `p1y`:
-        //
-        //   (p1y-p2y) * (p3y-p2y) = -((p1x-p2x) * (p3x-p2x))
-        //   (p1y-p2y) = -((p1x-p2x) * (p3x-p2x)) / (p3y-p2y)
-        //   p1y = -((p1x-p2x) * (p3x-p2x)) / (p3y-p2y) + p2y
-        //
-        // Thanks to my friend Joel Walker (https://github.com/JWalker1995) for
-        // devising the above equation and unit coordinate system approach!
-        // (x, y) coords of the check mark's bottommost point
-        const p2x = -1 + 0.75;
-        const p2y = -1 + 0.51;
-        // (x, y) coords of the check mark's topmost point
-        const p3y = 1 - 0.525;
-        const p3x = 1 - 0.31;
-        // (x, y) coords of the check mark's center (vertically) point
-        const p1x = -1 + 0.325;
-        const p1y = -((p1x - p2x) * (p3x - p2x)) / (p3y - p2y) + p2y;
-        /****************************************************************************/
-        return [
-            pushGraphicsState(),
-            options.color && setStrokingColor(options.color),
-            setLineWidth(options.thickness),
-            translate(options.x, options.y),
-            moveTo(p1x * size, p1y * size),
-            lineTo(p2x * size, p2y * size),
-            lineTo(p3x * size, p3y * size),
-            stroke(),
-            popGraphicsState(),
-        ].filter(Boolean);
-    };
-    // prettier-ignore
-    const rotateInPlace = (options) => options.rotation === 0 ? [
-        translate(0, 0),
-        rotateDegrees(0)
-    ]
-        : options.rotation === 90 ? [
-            translate(options.width, 0),
-            rotateDegrees(90)
-        ]
-            : options.rotation === 180 ? [
-                translate(options.width, options.height),
-                rotateDegrees(180)
-            ]
-                : options.rotation === 270 ? [
-                    translate(0, options.height),
-                    rotateDegrees(270)
-                ]
-                    : []; // Invalid rotation - noop
-    const drawCheckBox = (options) => {
-        const outline = drawRectangle({
-            x: options.x,
-            y: options.y,
-            width: options.width,
-            height: options.height,
-            borderWidth: options.borderWidth,
-            color: options.color,
-            borderColor: options.borderColor,
-            rotate: degrees(0),
-            xSkew: degrees(0),
-            ySkew: degrees(0),
-        });
-        if (!options.filled)
-            return outline;
-        const width = asNumber(options.width);
-        const height = asNumber(options.height);
-        const checkMarkSize = Math.min(width, height) / 2;
-        const checkMark = drawCheckMark({
-            x: width / 2,
-            y: height / 2,
-            size: checkMarkSize,
-            thickness: options.thickness,
-            color: options.markColor,
-        });
-        return [pushGraphicsState(), ...outline, ...checkMark, popGraphicsState()];
-    };
-    const drawRadioButton = (options) => {
-        const width = asNumber(options.width);
-        const height = asNumber(options.height);
-        const outlineScale = Math.min(width, height) / 2;
-        const outline = drawEllipse({
-            x: options.x,
-            y: options.y,
-            xScale: outlineScale,
-            yScale: outlineScale,
-            color: options.color,
-            borderColor: options.borderColor,
-            borderWidth: options.borderWidth,
-        });
-        if (!options.filled)
-            return outline;
-        const dot = drawEllipse({
-            x: options.x,
-            y: options.y,
-            xScale: outlineScale * 0.45,
-            yScale: outlineScale * 0.45,
-            color: options.dotColor,
-            borderColor: undefined,
-            borderWidth: 0,
-        });
-        return [pushGraphicsState(), ...outline, ...dot, popGraphicsState()];
-    };
-    const drawButton = (options) => {
-        const x = asNumber(options.x);
-        const y = asNumber(options.y);
-        const width = asNumber(options.width);
-        const height = asNumber(options.height);
-        const background = drawRectangle({
-            x,
-            y,
-            width,
-            height,
-            borderWidth: options.borderWidth,
-            color: options.color,
-            borderColor: options.borderColor,
-            rotate: degrees(0),
-            xSkew: degrees(0),
-            ySkew: degrees(0),
-        });
-        const lines = drawTextLines(options.textLines, {
-            color: options.textColor,
-            font: options.font,
-            size: options.fontSize,
-            rotate: degrees(0),
-            xSkew: degrees(0),
-            ySkew: degrees(0),
-        });
-        return [pushGraphicsState(), ...background, ...lines, popGraphicsState()];
-    };
-    const drawTextLines = (lines, options) => {
-        const operators = [
-            beginText(),
-            setFillingColor(options.color),
-            setFontAndSize(options.font, options.size),
-        ];
-        for (let idx = 0, len = lines.length; idx < len; idx++) {
-            const { encoded, x, y } = lines[idx];
-            operators.push(rotateAndSkewTextRadiansAndTranslate(toRadians(options.rotate), toRadians(options.xSkew), toRadians(options.ySkew), x, y), showText(encoded));
-        }
-        operators.push(endText());
-        return operators;
-    };
-    const drawTextField = (options) => {
-        const x = asNumber(options.x);
-        const y = asNumber(options.y);
-        const width = asNumber(options.width);
-        const height = asNumber(options.height);
-        const borderWidth = asNumber(options.borderWidth);
-        const padding = asNumber(options.padding);
-        const clipX = x + borderWidth / 2 + padding;
-        const clipY = y + borderWidth / 2 + padding;
-        const clipWidth = width - (borderWidth / 2 + padding) * 2;
-        const clipHeight = height - (borderWidth / 2 + padding) * 2;
-        const clippingArea = [
-            moveTo(clipX, clipY),
-            lineTo(clipX, clipY + clipHeight),
-            lineTo(clipX + clipWidth, clipY + clipHeight),
-            lineTo(clipX + clipWidth, clipY),
-            closePath(),
-            clip(),
-            endPath(),
-        ];
-        const background = drawRectangle({
-            x,
-            y,
-            width,
-            height,
-            borderWidth: options.borderWidth,
-            color: options.color,
-            borderColor: options.borderColor,
-            rotate: degrees(0),
-            xSkew: degrees(0),
-            ySkew: degrees(0),
-        });
-        const lines = drawTextLines(options.textLines, {
-            color: options.textColor,
-            font: options.font,
-            size: options.fontSize,
-            rotate: degrees(0),
-            xSkew: degrees(0),
-            ySkew: degrees(0),
-        });
-        const markedContent = [
-            beginMarkedContent('Tx'),
-            pushGraphicsState(),
-            ...lines,
-            popGraphicsState(),
-            endMarkedContent(),
-        ];
-        return [
-            pushGraphicsState(),
-            ...background,
-            ...clippingArea,
-            ...markedContent,
-            popGraphicsState(),
-        ];
-    };
-    const drawOptionList = (options) => {
-        const x = asNumber(options.x);
-        const y = asNumber(options.y);
-        const width = asNumber(options.width);
-        const height = asNumber(options.height);
-        const lineHeight = asNumber(options.lineHeight);
-        const borderWidth = asNumber(options.borderWidth);
-        const padding = asNumber(options.padding);
-        const clipX = x + borderWidth / 2 + padding;
-        const clipY = y + borderWidth / 2 + padding;
-        const clipWidth = width - (borderWidth / 2 + padding) * 2;
-        const clipHeight = height - (borderWidth / 2 + padding) * 2;
-        const clippingArea = [
-            moveTo(clipX, clipY),
-            lineTo(clipX, clipY + clipHeight),
-            lineTo(clipX + clipWidth, clipY + clipHeight),
-            lineTo(clipX + clipWidth, clipY),
-            closePath(),
-            clip(),
-            endPath(),
-        ];
-        const background = drawRectangle({
-            x,
-            y,
-            width,
-            height,
-            borderWidth: options.borderWidth,
-            color: options.color,
-            borderColor: options.borderColor,
-            rotate: degrees(0),
-            xSkew: degrees(0),
-            ySkew: degrees(0),
-        });
-        const highlights = [];
-        for (let idx = 0, len = options.selectedLines.length; idx < len; idx++) {
-            const line = options.textLines[options.selectedLines[idx]];
-            highlights.push(...drawRectangle({
-                x: line.x - padding,
-                y: line.y - (lineHeight - line.height) / 2,
-                width: width - borderWidth,
-                height: line.height + (lineHeight - line.height) / 2,
-                borderWidth: 0,
-                color: options.selectedColor,
-                borderColor: undefined,
-                rotate: degrees(0),
-                xSkew: degrees(0),
-                ySkew: degrees(0),
-            }));
-        }
-        const lines = drawTextLines(options.textLines, {
-            color: options.textColor,
-            font: options.font,
-            size: options.fontSize,
-            rotate: degrees(0),
-            xSkew: degrees(0),
-            ySkew: degrees(0),
-        });
-        const markedContent = [
-            beginMarkedContent('Tx'),
-            pushGraphicsState(),
-            ...lines,
-            popGraphicsState(),
-            endMarkedContent(),
-        ];
-        return [
-            pushGraphicsState(),
-            ...background,
-            ...highlights,
-            ...clippingArea,
-            ...markedContent,
-            popGraphicsState(),
-        ];
-    };
-
-    // tslint:disable: max-classes-per-file
-    // TODO: Include link to documentation with example
-    class EncryptedPDFError extends Error {
-        constructor() {
-            const msg = 'Input document to `PDFDocument.load` is encrypted. You can use `PDFDocument.load(..., { ignoreEncryption: true })` if you wish to load the document anyways.';
-            super(msg);
-        }
-    }
-    // TODO: Include link to documentation with example
-    class FontkitNotRegisteredError extends Error {
-        constructor() {
-            const msg = 'Input to `PDFDocument.embedFont` was a custom font, but no `fontkit` instance was found. You must register a `fontkit` instance with `PDFDocument.registerFontkit(...)` before embedding custom fonts.';
-            super(msg);
-        }
-    }
-    // TODO: Include link to documentation with example
-    class ForeignPageError extends Error {
-        constructor() {
-            const msg = 'A `page` passed to `PDFDocument.addPage` or `PDFDocument.insertPage` was from a different (foreign) PDF document. If you want to copy pages from one PDFDocument to another, you must use `PDFDocument.copyPages(...)` to copy the pages before adding or inserting them.';
-            super(msg);
-        }
-    }
-    // TODO: Include link to documentation with example
-    class RemovePageFromEmptyDocumentError extends Error {
-        constructor() {
-            const msg = 'PDFDocument has no pages so `PDFDocument.removePage` cannot be called';
-            super(msg);
-        }
-    }
-    class NoSuchFieldError extends Error {
-        constructor(name) {
-            const msg = `PDFDocument has no form field with the name "${name}"`;
-            super(msg);
-        }
-    }
-    class UnexpectedFieldTypeError extends Error {
-        constructor(name, expected, actual) {
-            var _a, _b;
-            const expectedType = expected === null || expected === void 0 ? void 0 : expected.name;
-            const actualType = (_b = (_a = actual === null || actual === void 0 ? void 0 : actual.constructor) === null || _a === void 0 ? void 0 : _a.name) !== null && _b !== void 0 ? _b : actual;
-            const msg = `Expected field "${name}" to be of type ${expectedType}, ` +
-                `but it is actually of type ${actualType}`;
-            super(msg);
-        }
-    }
-    class MissingOnValueCheckError extends Error {
-        constructor(onValue) {
-            const msg = `Failed to select check box due to missing onValue: "${onValue}"`;
-            super(msg);
-        }
-    }
-    class FieldAlreadyExistsError extends Error {
-        constructor(name) {
-            const msg = `A field already exists with the specified name: "${name}"`;
-            super(msg);
-        }
-    }
-    class InvalidFieldNamePartError extends Error {
-        constructor(namePart) {
-            const msg = `Field name contains invalid component: "${namePart}"`;
-            super(msg);
-        }
-    }
-    class FieldExistsAsNonTerminalError extends Error {
-        constructor(name) {
-            const msg = `A non-terminal field already exists with the specified name: "${name}"`;
-            super(msg);
-        }
-    }
-    class RichTextFieldReadError extends Error {
-        constructor(fieldName) {
-            const msg = `Reading rich text fields is not supported: Attempted to read rich text field: ${fieldName}`;
-            super(msg);
-        }
-    }
-    class CombedTextLayoutError extends Error {
-        constructor(lineLength, cellCount) {
-            const msg = `Failed to layout combed text as lineLength=${lineLength} is greater than cellCount=${cellCount}`;
-            super(msg);
-        }
-    }
-    class ExceededMaxLengthError extends Error {
-        constructor(textLength, maxLength, name) {
-            const msg = `Attempted to set text with length=${textLength} for TextField with maxLength=${maxLength} and name=${name}`;
-            super(msg);
-        }
-    }
-    class InvalidMaxLengthError extends Error {
-        constructor(textLength, maxLength, name) {
-            const msg = `Attempted to set maxLength=${maxLength}, which is less than ${textLength}, the length of this field's current value (name=${name})`;
-            super(msg);
-        }
-    }
-
-    exports.TextAlignment = void 0;
-    (function (TextAlignment) {
-        TextAlignment[TextAlignment["Left"] = 0] = "Left";
-        TextAlignment[TextAlignment["Center"] = 1] = "Center";
-        TextAlignment[TextAlignment["Right"] = 2] = "Right";
-    })(exports.TextAlignment || (exports.TextAlignment = {}));
-
-    const MIN_FONT_SIZE = 4;
-    const MAX_FONT_SIZE = 500;
-    const computeFontSize = (lines, font, bounds, multiline = false) => {
-        let fontSize = MIN_FONT_SIZE;
-        while (fontSize < MAX_FONT_SIZE) {
-            let linesUsed = 0;
-            for (let lineIdx = 0, lineLen = lines.length; lineIdx < lineLen; lineIdx++) {
-                linesUsed += 1;
-                const line = lines[lineIdx];
-                const words = line.split(' ');
-                // Layout the words using the current `fontSize`, line wrapping
-                // whenever we reach the end of the current line.
-                let spaceInLineRemaining = bounds.width;
-                for (let idx = 0, len = words.length; idx < len; idx++) {
-                    const isLastWord = idx === len - 1;
-                    const word = isLastWord ? words[idx] : words[idx] + ' ';
-                    const widthOfWord = font.widthOfTextAtSize(word, fontSize);
-                    spaceInLineRemaining -= widthOfWord;
-                    if (spaceInLineRemaining <= 0) {
-                        linesUsed += 1;
-                        spaceInLineRemaining = bounds.width - widthOfWord;
-                    }
-                }
-            }
-            // Return if we exceeded the allowed width
-            if (!multiline && linesUsed > lines.length)
-                return fontSize - 1;
-            const height = font.heightAtSize(fontSize);
-            const lineHeight = height + height * 0.2;
-            const totalHeight = lineHeight * linesUsed;
-            // Return if we exceeded the allowed height
-            if (totalHeight > Math.abs(bounds.height))
-                return fontSize - 1;
-            fontSize += 1;
-        }
-        return fontSize;
-    };
-    const computeCombedFontSize = (line, font, bounds, cellCount) => {
-        const cellWidth = bounds.width / cellCount;
-        const cellHeight = bounds.height;
-        let fontSize = MIN_FONT_SIZE;
-        const chars = charSplit(line);
-        while (fontSize < MAX_FONT_SIZE) {
-            for (let idx = 0, len = chars.length; idx < len; idx++) {
-                const c = chars[idx];
-                const tooLong = font.widthOfTextAtSize(c, fontSize) > cellWidth * 0.75;
-                if (tooLong)
-                    return fontSize - 1;
-            }
-            const height = font.heightAtSize(fontSize, { descender: false });
-            if (height > cellHeight)
-                return fontSize - 1;
-            fontSize += 1;
-        }
-        return fontSize;
-    };
-    const lastIndexOfWhitespace = (line) => {
-        for (let idx = line.length; idx > 0; idx--) {
-            if (/\s/.test(line[idx]))
-                return idx;
-        }
-        return undefined;
-    };
-    const splitOutLines = (input, maxWidth, font, fontSize) => {
-        var _a;
-        let lastWhitespaceIdx = input.length;
-        while (lastWhitespaceIdx > 0) {
-            const line = input.substring(0, lastWhitespaceIdx);
-            const encoded = font.encodeText(line);
-            const width = font.widthOfTextAtSize(line, fontSize);
-            if (width < maxWidth) {
-                const remainder = input.substring(lastWhitespaceIdx) || undefined;
-                return { line, encoded, width, remainder };
-            }
-            lastWhitespaceIdx = (_a = lastIndexOfWhitespace(line)) !== null && _a !== void 0 ? _a : 0;
-        }
-        // We were unable to split the input enough to get a chunk that would fit
-        // within the specified `maxWidth` so we'll just return everything
-        return {
-            line: input,
-            encoded: font.encodeText(input),
-            width: font.widthOfTextAtSize(input, fontSize),
-            remainder: undefined,
-        };
-    };
-    const layoutMultilineText = (text, { alignment, fontSize, font, bounds }) => {
-        const lines = lineSplit(cleanText(text));
-        if (fontSize === undefined || fontSize === 0) {
-            fontSize = computeFontSize(lines, font, bounds, true);
-        }
-        const height = font.heightAtSize(fontSize);
-        const lineHeight = height + height * 0.2;
-        const textLines = [];
-        let minX = bounds.x;
-        let minY = bounds.y;
-        let maxX = bounds.x + bounds.width;
-        let maxY = bounds.y + bounds.height;
-        let y = bounds.y + bounds.height;
-        for (let idx = 0, len = lines.length; idx < len; idx++) {
-            let prevRemainder = lines[idx];
-            while (prevRemainder !== undefined) {
-                const { line, encoded, width, remainder } = splitOutLines(prevRemainder, bounds.width, font, fontSize);
-                // prettier-ignore
-                const x = (alignment === exports.TextAlignment.Left ? bounds.x
-                    : alignment === exports.TextAlignment.Center ? bounds.x + (bounds.width / 2) - (width / 2)
-                        : alignment === exports.TextAlignment.Right ? bounds.x + bounds.width - width
-                            : bounds.x);
-                y -= lineHeight;
-                if (x < minX)
-                    minX = x;
-                if (y < minY)
-                    minY = y;
-                if (x + width > maxX)
-                    maxX = x + width;
-                if (y + height > maxY)
-                    maxY = y + height;
-                textLines.push({ text: line, encoded, width, height, x, y });
-                // Only trim lines that we had to split ourselves. So we won't trim lines
-                // that the user provided themselves with whitespace.
-                prevRemainder = remainder === null || remainder === void 0 ? void 0 : remainder.trim();
-            }
-        }
-        return {
-            fontSize,
-            lineHeight,
-            lines: textLines,
-            bounds: {
-                x: minX,
-                y: minY,
-                width: maxX - minX,
-                height: maxY - minY,
-            },
-        };
-    };
-    const layoutCombedText = (text, { fontSize, font, bounds, cellCount }) => {
-        const line = mergeLines(cleanText(text));
-        if (line.length > cellCount) {
-            throw new CombedTextLayoutError(line.length, cellCount);
-        }
-        if (fontSize === undefined || fontSize === 0) {
-            fontSize = computeCombedFontSize(line, font, bounds, cellCount);
-        }
-        const cellWidth = bounds.width / cellCount;
-        const height = font.heightAtSize(fontSize, { descender: false });
-        const y = bounds.y + (bounds.height / 2 - height / 2);
-        const cells = [];
-        let minX = bounds.x;
-        let minY = bounds.y;
-        let maxX = bounds.x + bounds.width;
-        let maxY = bounds.y + bounds.height;
-        let cellOffset = 0;
-        let charOffset = 0;
-        while (cellOffset < cellCount) {
-            const [char, charLength] = charAtIndex(line, charOffset);
-            const encoded = font.encodeText(char);
-            const width = font.widthOfTextAtSize(char, fontSize);
-            const cellCenter = bounds.x + (cellWidth * cellOffset + cellWidth / 2);
-            const x = cellCenter - width / 2;
-            if (x < minX)
-                minX = x;
-            if (y < minY)
-                minY = y;
-            if (x + width > maxX)
-                maxX = x + width;
-            if (y + height > maxY)
-                maxY = y + height;
-            cells.push({ text: line, encoded, width, height, x, y });
-            cellOffset += 1;
-            charOffset += charLength;
-        }
-        return {
-            fontSize,
-            cells,
-            bounds: {
-                x: minX,
-                y: minY,
-                width: maxX - minX,
-                height: maxY - minY,
-            },
-        };
-    };
-    const layoutSinglelineText = (text, { alignment, fontSize, font, bounds }) => {
-        const line = mergeLines(cleanText(text));
-        if (fontSize === undefined || fontSize === 0) {
-            fontSize = computeFontSize([line], font, bounds);
-        }
-        const encoded = font.encodeText(line);
-        const width = font.widthOfTextAtSize(line, fontSize);
-        const height = font.heightAtSize(fontSize, { descender: false });
-        // prettier-ignore
-        const x = (alignment === exports.TextAlignment.Left ? bounds.x
-            : alignment === exports.TextAlignment.Center ? bounds.x + (bounds.width / 2) - (width / 2)
-                : alignment === exports.TextAlignment.Right ? bounds.x + bounds.width - width
-                    : bounds.x);
-        const y = bounds.y + (bounds.height / 2 - height / 2);
-        return {
-            fontSize,
-            line: { text: line, encoded, width, height, x, y },
-            bounds: { x, y, width, height },
-        };
-    };
-
-    /********************* Appearance Provider Functions **************************/
-    const normalizeAppearance = (appearance) => {
-        if ('normal' in appearance)
-            return appearance;
-        return { normal: appearance };
-    };
-    // Examples:
-    //   `/Helv 12 Tf` -> ['/Helv 12 Tf', 'Helv', '12']
-    //   `/HeBo 8.00 Tf` -> ['/HeBo 8 Tf', 'HeBo', '8.00']
-    const tfRegex = /\/([^\0\t\n\f\r\ ]+)[\0\t\n\f\r\ ]+(\d*\.\d+|\d+)[\0\t\n\f\r\ ]+Tf/;
-    const getDefaultFontSize = (field) => {
-        var _a, _b;
-        const da = (_a = field.getDefaultAppearance()) !== null && _a !== void 0 ? _a : '';
-        const daMatch = (_b = findLastMatch(da, tfRegex).match) !== null && _b !== void 0 ? _b : [];
-        const defaultFontSize = Number(daMatch[2]);
-        return isFinite(defaultFontSize) ? defaultFontSize : undefined;
-    };
-    // Examples:
-    //   `0.3 g` -> ['0.3', 'g']
-    //   `0.3 1 .3 rg` -> ['0.3', '1', '.3', 'rg']
-    //   `0.3 1 .3 0 k` -> ['0.3', '1', '.3', '0', 'k']
-    const colorRegex = /(\d*\.\d+|\d+)[\0\t\n\f\r\ ]*(\d*\.\d+|\d+)?[\0\t\n\f\r\ ]*(\d*\.\d+|\d+)?[\0\t\n\f\r\ ]*(\d*\.\d+|\d+)?[\0\t\n\f\r\ ]+(g|rg|k)/;
-    const getDefaultColor = (field) => {
-        var _a;
-        const da = (_a = field.getDefaultAppearance()) !== null && _a !== void 0 ? _a : '';
-        const daMatch = findLastMatch(da, colorRegex).match;
-        const [, c1, c2, c3, c4, colorSpace] = daMatch !== null && daMatch !== void 0 ? daMatch : [];
-        if (colorSpace === 'g' && c1) {
-            return grayscale(Number(c1));
-        }
-        if (colorSpace === 'rg' && c1 && c2 && c3) {
-            return rgb(Number(c1), Number(c2), Number(c3));
-        }
-        if (colorSpace === 'k' && c1 && c2 && c3 && c4) {
-            return cmyk(Number(c1), Number(c2), Number(c3), Number(c4));
-        }
-        return undefined;
-    };
-    const updateDefaultAppearance = (field, color, font, fontSize = 0) => {
-        var _a;
-        const da = [
-            setFillingColor(color).toString(),
-            setFontAndSize((_a = font === null || font === void 0 ? void 0 : font.name) !== null && _a !== void 0 ? _a : 'dummy__noop', fontSize).toString(),
-        ].join('\n');
-        field.setDefaultAppearance(da);
-    };
-    const defaultCheckBoxAppearanceProvider = (checkBox, widget) => {
-        var _a, _b, _c;
-        // The `/DA` entry can be at the widget or field level - so we handle both
-        const widgetColor = getDefaultColor(widget);
-        const fieldColor = getDefaultColor(checkBox.acroField);
-        const rectangle = widget.getRectangle();
-        const ap = widget.getAppearanceCharacteristics();
-        const bs = widget.getBorderStyle();
-        const borderWidth = (_a = bs === null || bs === void 0 ? void 0 : bs.getWidth()) !== null && _a !== void 0 ? _a : 0;
-        const rotation = reduceRotation(ap === null || ap === void 0 ? void 0 : ap.getRotation());
-        const { width, height } = adjustDimsForRotation(rectangle, rotation);
-        const rotate = rotateInPlace({ ...rectangle, rotation });
-        const black = rgb(0, 0, 0);
-        const borderColor = (_b = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBorderColor())) !== null && _b !== void 0 ? _b : black;
-        const normalBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor());
-        const downBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor(), 0.8);
-        // Update color
-        const textColor = (_c = widgetColor !== null && widgetColor !== void 0 ? widgetColor : fieldColor) !== null && _c !== void 0 ? _c : black;
-        if (widgetColor) {
-            updateDefaultAppearance(widget, textColor);
-        }
-        else {
-            updateDefaultAppearance(checkBox.acroField, textColor);
-        }
-        const options = {
-            x: 0 + borderWidth / 2,
-            y: 0 + borderWidth / 2,
-            width: width - borderWidth,
-            height: height - borderWidth,
-            thickness: 1.5,
-            borderWidth,
-            borderColor,
-            markColor: textColor,
-        };
-        return {
-            normal: {
-                on: [
-                    ...rotate,
-                    ...drawCheckBox({
-                        ...options,
-                        color: normalBackgroundColor,
-                        filled: true,
-                    }),
-                ],
-                off: [
-                    ...rotate,
-                    ...drawCheckBox({
-                        ...options,
-                        color: normalBackgroundColor,
-                        filled: false,
-                    }),
-                ],
-            },
-            down: {
-                on: [
-                    ...rotate,
-                    ...drawCheckBox({
-                        ...options,
-                        color: downBackgroundColor,
-                        filled: true,
-                    }),
-                ],
-                off: [
-                    ...rotate,
-                    ...drawCheckBox({
-                        ...options,
-                        color: downBackgroundColor,
-                        filled: false,
-                    }),
-                ],
-            },
-        };
-    };
-    const defaultRadioGroupAppearanceProvider = (radioGroup, widget) => {
-        var _a, _b, _c;
-        // The `/DA` entry can be at the widget or field level - so we handle both
-        const widgetColor = getDefaultColor(widget);
-        const fieldColor = getDefaultColor(radioGroup.acroField);
-        const rectangle = widget.getRectangle();
-        const ap = widget.getAppearanceCharacteristics();
-        const bs = widget.getBorderStyle();
-        const borderWidth = (_a = bs === null || bs === void 0 ? void 0 : bs.getWidth()) !== null && _a !== void 0 ? _a : 0;
-        const rotation = reduceRotation(ap === null || ap === void 0 ? void 0 : ap.getRotation());
-        const { width, height } = adjustDimsForRotation(rectangle, rotation);
-        const rotate = rotateInPlace({ ...rectangle, rotation });
-        const black = rgb(0, 0, 0);
-        const borderColor = (_b = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBorderColor())) !== null && _b !== void 0 ? _b : black;
-        const normalBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor());
-        const downBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor(), 0.8);
-        // Update color
-        const textColor = (_c = widgetColor !== null && widgetColor !== void 0 ? widgetColor : fieldColor) !== null && _c !== void 0 ? _c : black;
-        if (widgetColor) {
-            updateDefaultAppearance(widget, textColor);
-        }
-        else {
-            updateDefaultAppearance(radioGroup.acroField, textColor);
-        }
-        const options = {
-            x: width / 2,
-            y: height / 2,
-            width: width - borderWidth,
-            height: height - borderWidth,
-            borderWidth,
-            borderColor,
-            dotColor: textColor,
-        };
-        return {
-            normal: {
-                on: [
-                    ...rotate,
-                    ...drawRadioButton({
-                        ...options,
-                        color: normalBackgroundColor,
-                        filled: true,
-                    }),
-                ],
-                off: [
-                    ...rotate,
-                    ...drawRadioButton({
-                        ...options,
-                        color: normalBackgroundColor,
-                        filled: false,
-                    }),
-                ],
-            },
-            down: {
-                on: [
-                    ...rotate,
-                    ...drawRadioButton({
-                        ...options,
-                        color: downBackgroundColor,
-                        filled: true,
-                    }),
-                ],
-                off: [
-                    ...rotate,
-                    ...drawRadioButton({
-                        ...options,
-                        color: downBackgroundColor,
-                        filled: false,
-                    }),
-                ],
-            },
-        };
-    };
-    const defaultButtonAppearanceProvider = (button, widget, font) => {
-        var _a, _b, _c, _d, _e;
-        // The `/DA` entry can be at the widget or field level - so we handle both
-        const widgetColor = getDefaultColor(widget);
-        const fieldColor = getDefaultColor(button.acroField);
-        const widgetFontSize = getDefaultFontSize(widget);
-        const fieldFontSize = getDefaultFontSize(button.acroField);
-        const rectangle = widget.getRectangle();
-        const ap = widget.getAppearanceCharacteristics();
-        const bs = widget.getBorderStyle();
-        const captions = ap === null || ap === void 0 ? void 0 : ap.getCaptions();
-        const normalText = (_a = captions === null || captions === void 0 ? void 0 : captions.normal) !== null && _a !== void 0 ? _a : '';
-        const downText = (_c = (_b = captions === null || captions === void 0 ? void 0 : captions.down) !== null && _b !== void 0 ? _b : normalText) !== null && _c !== void 0 ? _c : '';
-        const borderWidth = (_d = bs === null || bs === void 0 ? void 0 : bs.getWidth()) !== null && _d !== void 0 ? _d : 0;
-        const rotation = reduceRotation(ap === null || ap === void 0 ? void 0 : ap.getRotation());
-        const { width, height } = adjustDimsForRotation(rectangle, rotation);
-        const rotate = rotateInPlace({ ...rectangle, rotation });
-        const black = rgb(0, 0, 0);
-        const borderColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBorderColor());
-        const normalBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor());
-        const downBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor(), 0.8);
-        const bounds = {
-            x: borderWidth,
-            y: borderWidth,
-            width: width - borderWidth * 2,
-            height: height - borderWidth * 2,
-        };
-        const normalLayout = layoutSinglelineText(normalText, {
-            alignment: exports.TextAlignment.Center,
-            fontSize: widgetFontSize !== null && widgetFontSize !== void 0 ? widgetFontSize : fieldFontSize,
-            font,
-            bounds,
-        });
-        const downLayout = layoutSinglelineText(downText, {
-            alignment: exports.TextAlignment.Center,
-            fontSize: widgetFontSize !== null && widgetFontSize !== void 0 ? widgetFontSize : fieldFontSize,
-            font,
-            bounds,
-        });
-        // Update font size and color
-        const fontSize = Math.min(normalLayout.fontSize, downLayout.fontSize);
-        const textColor = (_e = widgetColor !== null && widgetColor !== void 0 ? widgetColor : fieldColor) !== null && _e !== void 0 ? _e : black;
-        if (widgetColor || widgetFontSize !== undefined) {
-            updateDefaultAppearance(widget, textColor, font, fontSize);
-        }
-        else {
-            updateDefaultAppearance(button.acroField, textColor, font, fontSize);
-        }
-        const options = {
-            x: 0 + borderWidth / 2,
-            y: 0 + borderWidth / 2,
-            width: width - borderWidth,
-            height: height - borderWidth,
-            borderWidth,
-            borderColor,
-            textColor,
-            font: font.name,
-            fontSize,
-        };
-        return {
-            normal: [
-                ...rotate,
-                ...drawButton({
-                    ...options,
-                    color: normalBackgroundColor,
-                    textLines: [normalLayout.line],
-                }),
-            ],
-            down: [
-                ...rotate,
-                ...drawButton({
-                    ...options,
-                    color: downBackgroundColor,
-                    textLines: [downLayout.line],
-                }),
-            ],
-        };
-    };
-    const defaultTextFieldAppearanceProvider = (textField, widget, font) => {
-        var _a, _b, _c, _d;
-        // The `/DA` entry can be at the widget or field level - so we handle both
-        const widgetColor = getDefaultColor(widget);
-        const fieldColor = getDefaultColor(textField.acroField);
-        const widgetFontSize = getDefaultFontSize(widget);
-        const fieldFontSize = getDefaultFontSize(textField.acroField);
-        const rectangle = widget.getRectangle();
-        const ap = widget.getAppearanceCharacteristics();
-        const bs = widget.getBorderStyle();
-        const text = (_a = textField.getText()) !== null && _a !== void 0 ? _a : '';
-        const borderWidth = (_b = bs === null || bs === void 0 ? void 0 : bs.getWidth()) !== null && _b !== void 0 ? _b : 0;
-        const rotation = reduceRotation(ap === null || ap === void 0 ? void 0 : ap.getRotation());
-        const { width, height } = adjustDimsForRotation(rectangle, rotation);
-        const rotate = rotateInPlace({ ...rectangle, rotation });
-        const black = rgb(0, 0, 0);
-        const borderColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBorderColor());
-        const normalBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor());
-        let textLines;
-        let fontSize;
-        const padding = textField.isCombed() ? 0 : 1;
-        const bounds = {
-            x: borderWidth + padding,
-            y: borderWidth + padding,
-            width: width - (borderWidth + padding) * 2,
-            height: height - (borderWidth + padding) * 2,
-        };
-        if (textField.isMultiline()) {
-            const layout = layoutMultilineText(text, {
-                alignment: textField.getAlignment(),
-                fontSize: widgetFontSize !== null && widgetFontSize !== void 0 ? widgetFontSize : fieldFontSize,
-                font,
-                bounds,
-            });
-            textLines = layout.lines;
-            fontSize = layout.fontSize;
-        }
-        else if (textField.isCombed()) {
-            const layout = layoutCombedText(text, {
-                fontSize: widgetFontSize !== null && widgetFontSize !== void 0 ? widgetFontSize : fieldFontSize,
-                font,
-                bounds,
-                cellCount: (_c = textField.getMaxLength()) !== null && _c !== void 0 ? _c : 0,
-            });
-            textLines = layout.cells;
-            fontSize = layout.fontSize;
-        }
-        else {
-            const layout = layoutSinglelineText(text, {
-                alignment: textField.getAlignment(),
-                fontSize: widgetFontSize !== null && widgetFontSize !== void 0 ? widgetFontSize : fieldFontSize,
-                font,
-                bounds,
-            });
-            textLines = [layout.line];
-            fontSize = layout.fontSize;
-        }
-        // Update font size and color
-        const textColor = (_d = widgetColor !== null && widgetColor !== void 0 ? widgetColor : fieldColor) !== null && _d !== void 0 ? _d : black;
-        if (widgetColor || widgetFontSize !== undefined) {
-            updateDefaultAppearance(widget, textColor, font, fontSize);
-        }
-        else {
-            updateDefaultAppearance(textField.acroField, textColor, font, fontSize);
-        }
-        const options = {
-            x: 0 + borderWidth / 2,
-            y: 0 + borderWidth / 2,
-            width: width - borderWidth,
-            height: height - borderWidth,
-            borderWidth: borderWidth !== null && borderWidth !== void 0 ? borderWidth : 0,
-            borderColor,
-            textColor,
-            font: font.name,
-            fontSize,
-            color: normalBackgroundColor,
-            textLines,
-            padding,
-        };
-        return [...rotate, ...drawTextField(options)];
-    };
-    const defaultDropdownAppearanceProvider = (dropdown, widget, font) => {
-        var _a, _b, _c;
-        // The `/DA` entry can be at the widget or field level - so we handle both
-        const widgetColor = getDefaultColor(widget);
-        const fieldColor = getDefaultColor(dropdown.acroField);
-        const widgetFontSize = getDefaultFontSize(widget);
-        const fieldFontSize = getDefaultFontSize(dropdown.acroField);
-        const rectangle = widget.getRectangle();
-        const ap = widget.getAppearanceCharacteristics();
-        const bs = widget.getBorderStyle();
-        const text = (_a = dropdown.getSelected()[0]) !== null && _a !== void 0 ? _a : '';
-        const borderWidth = (_b = bs === null || bs === void 0 ? void 0 : bs.getWidth()) !== null && _b !== void 0 ? _b : 0;
-        const rotation = reduceRotation(ap === null || ap === void 0 ? void 0 : ap.getRotation());
-        const { width, height } = adjustDimsForRotation(rectangle, rotation);
-        const rotate = rotateInPlace({ ...rectangle, rotation });
-        const black = rgb(0, 0, 0);
-        const borderColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBorderColor());
-        const normalBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor());
-        const padding = 1;
-        const bounds = {
-            x: borderWidth + padding,
-            y: borderWidth + padding,
-            width: width - (borderWidth + padding) * 2,
-            height: height - (borderWidth + padding) * 2,
-        };
-        const { line, fontSize } = layoutSinglelineText(text, {
-            alignment: exports.TextAlignment.Left,
-            fontSize: widgetFontSize !== null && widgetFontSize !== void 0 ? widgetFontSize : fieldFontSize,
-            font,
-            bounds,
-        });
-        // Update font size and color
-        const textColor = (_c = widgetColor !== null && widgetColor !== void 0 ? widgetColor : fieldColor) !== null && _c !== void 0 ? _c : black;
-        if (widgetColor || widgetFontSize !== undefined) {
-            updateDefaultAppearance(widget, textColor, font, fontSize);
-        }
-        else {
-            updateDefaultAppearance(dropdown.acroField, textColor, font, fontSize);
-        }
-        const options = {
-            x: 0 + borderWidth / 2,
-            y: 0 + borderWidth / 2,
-            width: width - borderWidth,
-            height: height - borderWidth,
-            borderWidth: borderWidth !== null && borderWidth !== void 0 ? borderWidth : 0,
-            borderColor,
-            textColor,
-            font: font.name,
-            fontSize,
-            color: normalBackgroundColor,
-            textLines: [line],
-            padding,
-        };
-        return [...rotate, ...drawTextField(options)];
-    };
-    const defaultOptionListAppearanceProvider = (optionList, widget, font) => {
-        var _a, _b;
-        // The `/DA` entry can be at the widget or field level - so we handle both
-        const widgetColor = getDefaultColor(widget);
-        const fieldColor = getDefaultColor(optionList.acroField);
-        const widgetFontSize = getDefaultFontSize(widget);
-        const fieldFontSize = getDefaultFontSize(optionList.acroField);
-        const rectangle = widget.getRectangle();
-        const ap = widget.getAppearanceCharacteristics();
-        const bs = widget.getBorderStyle();
-        const borderWidth = (_a = bs === null || bs === void 0 ? void 0 : bs.getWidth()) !== null && _a !== void 0 ? _a : 0;
-        const rotation = reduceRotation(ap === null || ap === void 0 ? void 0 : ap.getRotation());
-        const { width, height } = adjustDimsForRotation(rectangle, rotation);
-        const rotate = rotateInPlace({ ...rectangle, rotation });
-        const black = rgb(0, 0, 0);
-        const borderColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBorderColor());
-        const normalBackgroundColor = componentsToColor(ap === null || ap === void 0 ? void 0 : ap.getBackgroundColor());
-        const options = optionList.getOptions();
-        const selected = optionList.getSelected();
-        if (optionList.isSorted())
-            options.sort();
-        let text = '';
-        for (let idx = 0, len = options.length; idx < len; idx++) {
-            text += options[idx];
-            if (idx < len - 1)
-                text += '\n';
-        }
-        const padding = 1;
-        const bounds = {
-            x: borderWidth + padding,
-            y: borderWidth + padding,
-            width: width - (borderWidth + padding) * 2,
-            height: height - (borderWidth + padding) * 2,
-        };
-        const { lines, fontSize, lineHeight } = layoutMultilineText(text, {
-            alignment: exports.TextAlignment.Left,
-            fontSize: widgetFontSize !== null && widgetFontSize !== void 0 ? widgetFontSize : fieldFontSize,
-            font,
-            bounds,
-        });
-        const selectedLines = [];
-        for (let idx = 0, len = lines.length; idx < len; idx++) {
-            const line = lines[idx];
-            if (selected.includes(line.text))
-                selectedLines.push(idx);
-        }
-        const blue = rgb(153 / 255, 193 / 255, 218 / 255);
-        // Update font size and color
-        const textColor = (_b = widgetColor !== null && widgetColor !== void 0 ? widgetColor : fieldColor) !== null && _b !== void 0 ? _b : black;
-        if (widgetColor || widgetFontSize !== undefined) {
-            updateDefaultAppearance(widget, textColor, font, fontSize);
-        }
-        else {
-            updateDefaultAppearance(optionList.acroField, textColor, font, fontSize);
-        }
-        return [
-            ...rotate,
-            ...drawOptionList({
-                x: 0 + borderWidth / 2,
-                y: 0 + borderWidth / 2,
-                width: width - borderWidth,
-                height: height - borderWidth,
-                borderWidth: borderWidth !== null && borderWidth !== void 0 ? borderWidth : 0,
-                borderColor,
-                textColor,
-                font: font.name,
-                fontSize,
-                color: normalBackgroundColor,
-                textLines: lines,
-                lineHeight,
-                selectedColor: blue,
-                selectedLines,
-                padding,
-            }),
-        ];
-    };
 
     /**
      * Represents a PDF page that has been embedded in a [[PDFDocument]].
@@ -35457,6 +34663,13 @@ end\
         }
     }
 
+    class PDFSvg {
+        constructor(svg, images = {}) {
+            this.svg = svg;
+            this.images = images;
+        }
+    }
+
     /**
      * Represents a PDF document.
      */
@@ -36685,6 +35898,769 @@ end\
             throw new UnexpectedObjectTypeError([PDFHexString, PDFString], pdfObject);
         }
     }
+
+    exports.BlendMode = void 0;
+    (function (BlendMode) {
+        BlendMode["Normal"] = "Normal";
+        BlendMode["Multiply"] = "Multiply";
+        BlendMode["Screen"] = "Screen";
+        BlendMode["Overlay"] = "Overlay";
+        BlendMode["Darken"] = "Darken";
+        BlendMode["Lighten"] = "Lighten";
+        BlendMode["ColorDodge"] = "ColorDodge";
+        BlendMode["ColorBurn"] = "ColorBurn";
+        BlendMode["HardLight"] = "HardLight";
+        BlendMode["SoftLight"] = "SoftLight";
+        BlendMode["Difference"] = "Difference";
+        BlendMode["Exclusion"] = "Exclusion";
+    })(exports.BlendMode || (exports.BlendMode = {}));
+
+    const identityMatrix = [1, 0, 0, 1, 0, 0];
+
+    const combineMatrix = ([a, b, c, d, e, f], [a2, b2, c2, d2, e2, f2]) => [
+        a * a2 + c * b2,
+        b * a2 + d * b2,
+        a * c2 + c * d2,
+        b * c2 + d * d2,
+        a * e2 + c * f2 + e,
+        b * e2 + d * f2 + f,
+    ];
+    const applyTransformation = ([a, b, c, d, e, f], { x, y }) => ({
+        x: a * x + c * y + e,
+        y: b * x + d * y + f,
+    });
+    const transformationToMatrix = (name, args) => {
+        switch (name) {
+            case 'scale':
+            case 'scaleX':
+            case 'scaleY': {
+                // [sx 0 0 sy 0 0]
+                const [sx, sy = sx] = args;
+                return [
+                    name === 'scaleY' ? 1 : sx,
+                    0,
+                    0,
+                    name === 'scaleX' ? 1 : sy,
+                    0,
+                    0,
+                ];
+            }
+            case 'translate':
+            case 'translateX':
+            case 'translateY': {
+                // [1 0 0 1 tx ty]
+                const [tx, ty = tx] = args;
+                // -ty is necessary because the pdf's y axis is inverted
+                return [
+                    1,
+                    0,
+                    0,
+                    1,
+                    name === 'translateY' ? 0 : tx,
+                    name === 'translateX' ? 0 : -ty,
+                ];
+            }
+            case 'rotate': {
+                // [cos(a) sin(a) -sin(a) cos(a) 0 0]
+                const [a, x = 0, y = 0] = args;
+                const t1 = transformationToMatrix('translate', [x, y]);
+                const t2 = transformationToMatrix('translate', [-x, -y]);
+                // -args[0] -> the '-' operator is necessary because the pdf rotation system is inverted
+                const aRadians = degreesToRadians(-a);
+                const r = [
+                    Math.cos(aRadians),
+                    Math.sin(aRadians),
+                    -Math.sin(aRadians),
+                    Math.cos(aRadians),
+                    0,
+                    0,
+                ];
+                // rotation around a point is the combination of: translate * rotate * (-translate)
+                return combineMatrix(combineMatrix(t1, r), t2);
+            }
+            case 'skewY':
+            case 'skewX': {
+                // [1 tan(a) 0 1 0 0]
+                // [1 0 tan(a) 1 0 0]
+                // -args[0] -> the '-' operator is necessary because the pdf rotation system is inverted
+                const a = degreesToRadians(-args[0]);
+                const skew = Math.tan(a);
+                const skewX = name === 'skewX' ? skew : 0;
+                const skewY = name === 'skewY' ? skew : 0;
+                return [1, skewY, skewX, 1, 0, 0];
+            }
+            case 'matrix': {
+                const [a, b, c, d, e, f] = args;
+                const r = transformationToMatrix('scale', [1, -1]);
+                const m = [a, b, c, d, e, f];
+                return combineMatrix(combineMatrix(r, m), r);
+            }
+            default:
+                return identityMatrix;
+        }
+    };
+    const combineTransformation = (matrix, name, args) => combineMatrix(matrix, transformationToMatrix(name, args));
+    const StrokeLineCapMap = {
+        butt: exports.LineCapStyle.Butt,
+        round: exports.LineCapStyle.Round,
+        square: exports.LineCapStyle.Projecting,
+    };
+    const FillRuleMap = {
+        evenodd: exports.FillRule.EvenOdd,
+        nonzero: exports.FillRule.NonZero,
+    };
+    const StrokeLineJoinMap = {
+        bevel: exports.LineJoinStyle.Bevel,
+        miter: exports.LineJoinStyle.Miter,
+        round: exports.LineJoinStyle.Round,
+    };
+    // TODO: Improve type system to require the correct props for each tagName.
+    /** methods to draw SVGElements onto a PDFPage */
+    const runnersToPage = (page, options) => ({
+        text(element) {
+            const anchor = element.svgAttributes.textAnchor;
+            const dominantBaseline = element.svgAttributes.dominantBaseline;
+            const text = element.text.trim().replace(/\s/g, ' ');
+            const fontSize = element.svgAttributes.fontSize || 12;
+            /** This will find the best font for the provided style in the list */
+            const getBestFont = (style, fonts) => {
+                const family = style.fontFamily;
+                if (!family)
+                    return undefined;
+                const isBold = style.fontWeight === 'bold' || Number(style.fontWeight) >= 700;
+                const isItalic = style.fontStyle === 'italic';
+                const getFont = (bold, italic, fontFamily) => fonts[fontFamily + (bold ? '_bold' : '') + (italic ? '_italic' : '')];
+                return (getFont(isBold, isItalic, family) ||
+                    getFont(isBold, false, family) ||
+                    getFont(false, isItalic, family) ||
+                    getFont(false, false, family) ||
+                    Object.keys(fonts).find((fontFamily) => fontFamily.startsWith(family)));
+            };
+            const font = options.fonts && getBestFont(element.svgAttributes, options.fonts);
+            const textWidth = (font || page.getFont()[0]).widthOfTextAtSize(text, fontSize);
+            const textHeight = (font || page.getFont()[0]).heightAtSize(fontSize);
+            const overLineHeight = (font || page.getFont()[0]).heightAtSize(fontSize, {
+                descender: false,
+            });
+            const offsetX = anchor === 'middle' ? textWidth / 2 : anchor === 'end' ? textWidth : 0;
+            let offsetY = 0;
+            switch (dominantBaseline) {
+                case 'middle':
+                case 'central':
+                    offsetY = overLineHeight - textHeight / 2;
+                    break;
+                case 'mathematical':
+                    offsetY = fontSize * 0.6; // Mathematical (approximation)
+                    break;
+                case 'hanging':
+                    offsetY = overLineHeight; // Hanging baseline is at the top
+                    break;
+                case 'text-before-edge':
+                    offsetY = fontSize; // Top of the text
+                    break;
+                case 'ideographic':
+                case 'text-after-edge':
+                    offsetY = overLineHeight - textHeight; // After edge (similar to text-bottom)
+                    break;
+                case 'text-top':
+                case 'text-bottom':
+                case 'auto':
+                case 'use-script':
+                case 'no-change':
+                case 'reset-size':
+                case 'alphabetic':
+                default:
+                    offsetY = 0; // Default to alphabetic if not specified
+                    break;
+            }
+            page.drawText(text, {
+                x: -offsetX,
+                y: -offsetY,
+                font,
+                // TODO: the font size should be correctly scaled too
+                size: fontSize,
+                color: element.svgAttributes.fill,
+                opacity: element.svgAttributes.fillOpacity,
+                matrix: element.svgAttributes.matrix,
+                clipSpaces: element.svgAttributes.clipSpaces,
+                blendMode: element.svgAttributes.blendMode || options.blendMode,
+            });
+        },
+        line(element) {
+            page.drawLine({
+                start: {
+                    x: element.svgAttributes.x1 || 0,
+                    y: -element.svgAttributes.y1 || 0,
+                },
+                end: {
+                    x: element.svgAttributes.x2 || 0,
+                    y: -element.svgAttributes.y2 || 0,
+                },
+                thickness: element.svgAttributes.strokeWidth,
+                color: element.svgAttributes.stroke,
+                opacity: element.svgAttributes.strokeOpacity,
+                lineCap: element.svgAttributes.strokeLineCap,
+                matrix: element.svgAttributes.matrix,
+                clipSpaces: element.svgAttributes.clipSpaces,
+                blendMode: element.svgAttributes.blendMode || options.blendMode,
+            });
+        },
+        path(element) {
+            if (!element.svgAttributes.d)
+                return;
+            // See https://jsbin.com/kawifomupa/edit?html,output and
+            page.drawSvgPath(element.svgAttributes.d, {
+                x: 0,
+                y: 0,
+                borderColor: element.svgAttributes.stroke,
+                borderWidth: element.svgAttributes.strokeWidth,
+                borderOpacity: element.svgAttributes.strokeOpacity,
+                borderLineCap: element.svgAttributes.strokeLineCap,
+                color: element.svgAttributes.fill,
+                opacity: element.svgAttributes.fillOpacity,
+                fillRule: element.svgAttributes.fillRule,
+                // drawSvgPath already handle the page y coord correctly, so we can undo the svg parsing correction
+                matrix: combineTransformation(element.svgAttributes.matrix, 'scale', [1, -1]),
+                clipSpaces: element.svgAttributes.clipSpaces,
+                blendMode: element.svgAttributes.blendMode || options.blendMode,
+            });
+        },
+        image(element) {
+            var _a, _b;
+            const { src } = element.svgAttributes;
+            if (!(src && ((_a = options.images) === null || _a === void 0 ? void 0 : _a[src])))
+                return;
+            const img = (_b = options.images) === null || _b === void 0 ? void 0 : _b[src];
+            const { x, y, width, height } = getFittingRectangle(img.width, img.height, element.svgAttributes.width || img.width, element.svgAttributes.height || img.height, element.svgAttributes.preserveAspectRatio);
+            page.drawImage(img, {
+                x,
+                y: -y - height,
+                width,
+                height,
+                opacity: element.svgAttributes.fillOpacity,
+                matrix: element.svgAttributes.matrix,
+                clipSpaces: element.svgAttributes.clipSpaces,
+                blendMode: element.svgAttributes.blendMode || options.blendMode,
+            });
+        },
+        rect(element) {
+            if (!element.svgAttributes.fill && !element.svgAttributes.stroke)
+                return;
+            page.drawRectangle({
+                x: 0,
+                y: 0,
+                width: element.svgAttributes.width,
+                height: element.svgAttributes.height,
+                rx: element.svgAttributes.rx,
+                ry: element.svgAttributes.ry,
+                borderColor: element.svgAttributes.stroke,
+                borderWidth: element.svgAttributes.strokeWidth,
+                borderOpacity: element.svgAttributes.strokeOpacity,
+                borderLineCap: element.svgAttributes.strokeLineCap,
+                color: element.svgAttributes.fill,
+                opacity: element.svgAttributes.fillOpacity,
+                matrix: combineTransformation(element.svgAttributes.matrix, 'translateY', [element.svgAttributes.height]),
+                clipSpaces: element.svgAttributes.clipSpaces,
+                blendMode: element.svgAttributes.blendMode || options.blendMode,
+            });
+        },
+        ellipse(element) {
+            page.drawEllipse({
+                x: element.svgAttributes.cx || 0,
+                y: -(element.svgAttributes.cy || 0),
+                xScale: element.svgAttributes.rx,
+                yScale: element.svgAttributes.ry,
+                borderColor: element.svgAttributes.stroke,
+                borderWidth: element.svgAttributes.strokeWidth,
+                borderOpacity: element.svgAttributes.strokeOpacity,
+                borderLineCap: element.svgAttributes.strokeLineCap,
+                color: element.svgAttributes.fill,
+                opacity: element.svgAttributes.fillOpacity,
+                matrix: element.svgAttributes.matrix,
+                clipSpaces: element.svgAttributes.clipSpaces,
+                blendMode: element.svgAttributes.blendMode || options.blendMode,
+            });
+        },
+        circle(element) {
+            return runnersToPage(page, options).ellipse(element);
+        },
+    });
+    const styleOrAttribute = (attributes, style, attribute, def) => {
+        const value = style[attribute] || attributes[attribute];
+        if (!value && typeof def !== 'undefined')
+            return def;
+        return value;
+    };
+    const parseStyles = (style) => {
+        const cssRegex = /([^:\s]+)*\s*:\s*([^;]+)/g;
+        const css = {};
+        let match = cssRegex.exec(style);
+        while (match != null) {
+            css[match[1]] = match[2];
+            match = cssRegex.exec(style);
+        }
+        return css;
+    };
+    const parseColor = (color, inherited) => {
+        if (!color || color.length === 0)
+            return undefined;
+        if (['none', 'transparent'].includes(color))
+            return undefined;
+        if (color === 'currentColor')
+            return inherited || parseColor('#000000');
+        const parsedColor = colorString(color);
+        return {
+            rgb: parsedColor.rgb,
+            alpha: parsedColor.alpha ? parsedColor.alpha + '' : undefined,
+        };
+    };
+    const parseAttributes = (element, inherited, matrix) => {
+        var _a, _b, _c, _d;
+        const attributes = element.attributes;
+        const style = parseStyles(attributes.style);
+        const widthRaw = styleOrAttribute(attributes, style, 'width', '');
+        const heightRaw = styleOrAttribute(attributes, style, 'height', '');
+        const fillRaw = parseColor(styleOrAttribute(attributes, style, 'fill'));
+        const fillOpacityRaw = styleOrAttribute(attributes, style, 'fill-opacity');
+        const opacityRaw = styleOrAttribute(attributes, style, 'opacity');
+        const strokeRaw = parseColor(styleOrAttribute(attributes, style, 'stroke'));
+        const strokeOpacityRaw = styleOrAttribute(attributes, style, 'stroke-opacity');
+        const strokeLineCapRaw = styleOrAttribute(attributes, style, 'stroke-linecap');
+        const strokeLineJoinRaw = styleOrAttribute(attributes, style, 'stroke-linejoin');
+        const fillRuleRaw = styleOrAttribute(attributes, style, 'fill-rule');
+        const strokeWidthRaw = styleOrAttribute(attributes, style, 'stroke-width');
+        const fontFamilyRaw = styleOrAttribute(attributes, style, 'font-family');
+        const fontStyleRaw = styleOrAttribute(attributes, style, 'font-style');
+        const fontWeightRaw = styleOrAttribute(attributes, style, 'font-weight');
+        const fontSizeRaw = styleOrAttribute(attributes, style, 'font-size');
+        const blendModeRaw = styleOrAttribute(attributes, style, 'mix-blend-mode');
+        const width = parseFloatValue(widthRaw, inherited.width);
+        const height = parseFloatValue(heightRaw, inherited.height);
+        const x = parseFloatValue(attributes.x, inherited.width);
+        const y = parseFloatValue(attributes.y, inherited.height);
+        const x1 = parseFloatValue(attributes.x1, inherited.width);
+        const x2 = parseFloatValue(attributes.x2, inherited.width);
+        const y1 = parseFloatValue(attributes.y1, inherited.height);
+        const y2 = parseFloatValue(attributes.y2, inherited.height);
+        const cx = parseFloatValue(attributes.cx, inherited.width);
+        const cy = parseFloatValue(attributes.cy, inherited.height);
+        const rx = parseFloatValue(attributes.rx || attributes.r, inherited.width);
+        const ry = parseFloatValue(attributes.ry || attributes.r, inherited.height);
+        const newInherited = {
+            fontFamily: fontFamilyRaw || inherited.fontFamily,
+            fontStyle: fontStyleRaw || inherited.fontStyle,
+            fontWeight: fontWeightRaw || inherited.fontWeight,
+            fontSize: (_a = parseFloatValue(fontSizeRaw)) !== null && _a !== void 0 ? _a : inherited.fontSize,
+            fill: (fillRaw === null || fillRaw === void 0 ? void 0 : fillRaw.rgb) || inherited.fill,
+            fillOpacity: (_b = parseFloatValue(fillOpacityRaw || opacityRaw || (fillRaw === null || fillRaw === void 0 ? void 0 : fillRaw.alpha))) !== null && _b !== void 0 ? _b : inherited.fillOpacity,
+            fillRule: FillRuleMap[fillRuleRaw] || inherited.fillRule,
+            stroke: (strokeRaw === null || strokeRaw === void 0 ? void 0 : strokeRaw.rgb) || inherited.stroke,
+            strokeWidth: (_c = parseFloatValue(strokeWidthRaw)) !== null && _c !== void 0 ? _c : inherited.strokeWidth,
+            strokeOpacity: (_d = parseFloatValue(strokeOpacityRaw || opacityRaw || (strokeRaw === null || strokeRaw === void 0 ? void 0 : strokeRaw.alpha))) !== null && _d !== void 0 ? _d : inherited.strokeOpacity,
+            strokeLineCap: StrokeLineCapMap[strokeLineCapRaw] || inherited.strokeLineCap,
+            strokeLineJoin: StrokeLineJoinMap[strokeLineJoinRaw] || inherited.strokeLineJoin,
+            width: width || inherited.width,
+            height: height || inherited.height,
+            rotation: inherited.rotation,
+            viewBox: element.tagName === 'svg' && element.attributes.viewBox
+                ? parseViewBox(element.attributes.viewBox)
+                : inherited.viewBox,
+            blendMode: parseBlendMode(blendModeRaw) || inherited.blendMode,
+        };
+        const svgAttributes = {
+            src: attributes.src || attributes.href || attributes['xlink:href'],
+            textAnchor: attributes['text-anchor'],
+            dominantBaseline: attributes['dominant-baseline'],
+            preserveAspectRatio: attributes.preserveAspectRatio,
+        };
+        let transformList = attributes.transform || '';
+        // Handle transformations set as direct attributes
+        [
+            'translate',
+            'translateX',
+            'translateY',
+            'skewX',
+            'skewY',
+            'rotate',
+            'scale',
+            'scaleX',
+            'scaleY',
+            'matrix',
+        ].forEach((name) => {
+            if (attributes[name]) {
+                transformList = attributes[name] + ' ' + transformList;
+            }
+        });
+        // Convert x/y as if it was a translation
+        if (x || y) {
+            transformList = transformList + `translate(${x || 0} ${y || 0}) `;
+        }
+        let newMatrix = matrix;
+        // Apply the transformations
+        if (transformList) {
+            const regexTransform = /(\w+)\((.+?)\)/g;
+            let parsed = regexTransform.exec(transformList);
+            while (parsed !== null) {
+                const [, name, rawArgs] = parsed;
+                const args = (rawArgs || '')
+                    .split(/\s*,\s*|\s+/)
+                    .filter((value) => value.length > 0)
+                    .map((value) => parseFloat(value));
+                newMatrix = combineTransformation(newMatrix, name, args);
+                parsed = regexTransform.exec(transformList);
+            }
+        }
+        svgAttributes.x = x;
+        svgAttributes.y = y;
+        if (attributes.cx || attributes.cy) {
+            svgAttributes.cx = cx;
+            svgAttributes.cy = cy;
+        }
+        if (attributes.rx || attributes.ry || attributes.r) {
+            svgAttributes.rx = rx;
+            svgAttributes.ry = ry;
+        }
+        if (attributes.x1 || attributes.y1) {
+            svgAttributes.x1 = x1;
+            svgAttributes.y1 = y1;
+        }
+        if (attributes.x2 || attributes.y2) {
+            svgAttributes.x2 = x2;
+            svgAttributes.y2 = y2;
+        }
+        if (attributes.width || attributes.height) {
+            svgAttributes.width = width !== null && width !== void 0 ? width : inherited.width;
+            svgAttributes.height = height !== null && height !== void 0 ? height : inherited.height;
+        }
+        if (attributes.d) {
+            newMatrix = combineTransformation(newMatrix, 'scale', [1, -1]);
+            svgAttributes.d = attributes.d;
+        }
+        if (fontSizeRaw && newInherited.fontSize) {
+            newInherited.fontSize = newInherited.fontSize;
+        }
+        if (newInherited.fontFamily) {
+            // Handle complex fontFamily like `"Linux Libertine O", serif`
+            const inner = newInherited.fontFamily.match(/^"(.*?)"|^'(.*?)'/);
+            if (inner)
+                newInherited.fontFamily = inner[1] || inner[2];
+        }
+        if (newInherited.strokeWidth) {
+            svgAttributes.strokeWidth = newInherited.strokeWidth;
+        }
+        return {
+            inherited: newInherited,
+            svgAttributes,
+            tagName: element.tagName,
+            matrix: newMatrix,
+        };
+    };
+    const getFittingRectangle = (originalWidth, originalHeight, targetWidth, targetHeight, preserveAspectRatio) => {
+        if (preserveAspectRatio === 'none') {
+            return { x: 0, y: 0, width: targetWidth, height: targetHeight };
+        }
+        const originalRatio = originalWidth / originalHeight;
+        const targetRatio = targetWidth / targetHeight;
+        const width = targetRatio > originalRatio ? originalRatio * targetHeight : targetWidth;
+        const height = targetRatio >= originalRatio ? targetHeight : targetWidth / originalRatio;
+        const dx = targetWidth - width;
+        const dy = targetHeight - height;
+        const [x, y] = (() => {
+            switch (preserveAspectRatio) {
+                case 'xMinYMin':
+                    return [0, 0];
+                case 'xMidYMin':
+                    return [dx / 2, 0];
+                case 'xMaxYMin':
+                    return [dx, dy / 2];
+                case 'xMinYMid':
+                    return [0, dy];
+                case 'xMaxYMid':
+                    return [dx, dy / 2];
+                case 'xMinYMax':
+                    return [0, dy];
+                case 'xMidYMax':
+                    return [dx / 2, dy];
+                case 'xMaxYMax':
+                    return [dx, dy];
+                case 'xMidYMid':
+                default:
+                    return [dx / 2, dy / 2];
+            }
+        })();
+        return { x, y, width, height };
+    };
+    // this function should reproduce the behavior described here: https://www.w3.org/TR/SVG11/coords.html#ViewBoxAttribute
+    const getAspectRatioTransformation = (matrix, originalWidth, originalHeight, targetWidth, targetHeight, preserveAspectRatioProp = 'xMidYMid') => {
+        const [preserveAspectRatio, meetOrSlice = 'meet'] = preserveAspectRatioProp.split(' ');
+        const scaleX = targetWidth / originalWidth;
+        const scaleY = targetHeight / originalHeight;
+        const boxScale = combineTransformation(matrix, 'scale', [scaleX, scaleY]);
+        if (preserveAspectRatio === 'none') {
+            return {
+                clipBox: boxScale,
+                content: boxScale,
+            };
+        }
+        const scale = meetOrSlice === 'slice'
+            ? Math.max(scaleX, scaleY)
+            : // since 'meet' is the default value, any value other than 'slice' should be handled as 'meet'
+                Math.min(scaleX, scaleY);
+        const dx = targetWidth - originalWidth * scale;
+        const dy = targetHeight - originalHeight * scale;
+        const [x, y] = (() => {
+            switch (preserveAspectRatio) {
+                case 'xMinYMin':
+                    return [0, 0];
+                case 'xMidYMin':
+                    return [dx / 2, 0];
+                case 'xMaxYMin':
+                    return [dx, dy / 2];
+                case 'xMinYMid':
+                    return [0, dy];
+                case 'xMaxYMid':
+                    return [dx, dy / 2];
+                case 'xMinYMax':
+                    return [0, dy];
+                case 'xMidYMax':
+                    return [dx / 2, dy];
+                case 'xMaxYMax':
+                    return [dx, dy];
+                case 'xMidYMid':
+                default:
+                    return [dx / 2, dy / 2];
+            }
+        })();
+        const contentTransform = combineTransformation(combineTransformation(matrix, 'translate', [x, y]), 'scale', [scale]);
+        return {
+            clipBox: boxScale,
+            content: contentTransform,
+        };
+    };
+    const parseHTMLNode = (node, inherited, matrix, clipSpaces) => {
+        if (node.nodeType === dist.NodeType.COMMENT_NODE)
+            return [];
+        else if (node.nodeType === dist.NodeType.TEXT_NODE)
+            return [];
+        else if (node.tagName === 'g') {
+            return parseGroupNode(node, inherited, matrix, clipSpaces);
+        }
+        else if (node.tagName === 'svg') {
+            return parseSvgNode(node, inherited, matrix, clipSpaces);
+        }
+        else {
+            if (node.tagName === 'polygon') {
+                node.tagName = 'path';
+                node.attributes.d = `M${node.attributes.points}Z`;
+                delete node.attributes.points;
+            }
+            const attributes = parseAttributes(node, inherited, matrix);
+            const svgAttributes = {
+                ...attributes.inherited,
+                ...attributes.svgAttributes,
+                matrix: attributes.matrix,
+                clipSpaces,
+            };
+            Object.assign(node, { svgAttributes });
+            return [node];
+        }
+    };
+    const parseSvgNode = (node, inherited, matrix, clipSpaces) => {
+        var _a, _b;
+        // if the width/height aren't set, the svg will have the same dimension as the current drawing space
+        /* tslint:disable:no-unused-expression */
+        (_a = node.attributes.width) !== null && _a !== void 0 ? _a : node.setAttribute('width', inherited.viewBox.width + '');
+        (_b = node.attributes.height) !== null && _b !== void 0 ? _b : node.setAttribute('height', inherited.viewBox.height + '');
+        /* tslint:enable:no-unused-expression */
+        const attributes = parseAttributes(node, inherited, matrix);
+        const result = [];
+        const viewBox = node.attributes.viewBox
+            ? parseViewBox(node.attributes.viewBox)
+            : node.attributes.width && node.attributes.height
+                ? parseViewBox(`0 0 ${node.attributes.width} ${node.attributes.height}`)
+                : inherited.viewBox;
+        const x = parseFloat(node.attributes.x) || 0;
+        const y = parseFloat(node.attributes.y) || 0;
+        let newMatrix = combineTransformation(matrix, 'translate', [x, y]);
+        const { clipBox: clipBoxTransform, content: contentTransform } = getAspectRatioTransformation(newMatrix, viewBox.width, viewBox.height, parseFloat(node.attributes.width), parseFloat(node.attributes.height), node.attributes.preserveAspectRatio);
+        const topLeft = applyTransformation(clipBoxTransform, {
+            x: 0,
+            y: 0,
+        });
+        const topRight = applyTransformation(clipBoxTransform, {
+            x: viewBox.width,
+            y: 0,
+        });
+        const bottomRight = applyTransformation(clipBoxTransform, {
+            x: viewBox.width,
+            y: -viewBox.height,
+        });
+        const bottomLeft = applyTransformation(clipBoxTransform, {
+            x: 0,
+            y: -viewBox.height,
+        });
+        const baseClipSpace = {
+            topLeft,
+            topRight,
+            bottomRight,
+            bottomLeft,
+        };
+        newMatrix = combineTransformation(contentTransform, 'translate', [
+            -viewBox.x,
+            -viewBox.y,
+        ]);
+        node.childNodes.forEach((child) => {
+            const parsedNodes = parseHTMLNode(child, { ...attributes.inherited, viewBox }, newMatrix, [...clipSpaces, baseClipSpace]);
+            result.push(...parsedNodes);
+        });
+        return result;
+    };
+    const parseGroupNode = (node, inherited, matrix, clipSpaces) => {
+        const attributes = parseAttributes(node, inherited, matrix);
+        const result = [];
+        node.childNodes.forEach((child) => {
+            result.push(...parseHTMLNode(child, attributes.inherited, attributes.matrix, clipSpaces));
+        });
+        return result;
+    };
+    const parseFloatValue = (value, reference = 1) => {
+        if (!value)
+            return undefined;
+        const v = parseFloat(value);
+        if (isNaN(v))
+            return undefined;
+        if (value.endsWith('%'))
+            return (v * reference) / 100;
+        return v;
+    };
+    const parseBlendMode = (blendMode) => {
+        switch (blendMode) {
+            case 'normal':
+                return exports.BlendMode.Normal;
+            case 'multiply':
+                return exports.BlendMode.Multiply;
+            case 'screen':
+                return exports.BlendMode.Screen;
+            case 'overlay':
+                return exports.BlendMode.Overlay;
+            case 'darken':
+                return exports.BlendMode.Darken;
+            case 'lighten':
+                return exports.BlendMode.Lighten;
+            case 'color-dodge':
+                return exports.BlendMode.ColorDodge;
+            case 'color-burn':
+                return exports.BlendMode.ColorBurn;
+            case 'hard-light':
+                return exports.BlendMode.HardLight;
+            case 'soft-light':
+                return exports.BlendMode.SoftLight;
+            case 'difference':
+                return exports.BlendMode.Difference;
+            case 'exclusion':
+                return exports.BlendMode.Exclusion;
+            default:
+                return undefined;
+        }
+    };
+    const parseViewBox = (viewBox) => {
+        if (!viewBox)
+            return;
+        const [xViewBox = 0, yViewBox = 0, widthViewBox = 1, heightViewBox = 1] = (viewBox || '')
+            .split(' ')
+            .map((val) => parseFloatValue(val));
+        return {
+            x: xViewBox,
+            y: yViewBox,
+            width: widthViewBox,
+            height: heightViewBox,
+        };
+    };
+    const parse = (svg, { width, height, fontSize }, size, matrix) => {
+        const htmlElement = dist.parse(svg).firstChild;
+        if (width)
+            htmlElement.setAttribute('width', width + '');
+        if (height)
+            htmlElement.setAttribute('height', height + '');
+        if (fontSize)
+            htmlElement.setAttribute('font-size', fontSize + '');
+        // TODO: what should be the default viewBox?
+        return parseHTMLNode(htmlElement, {
+            ...size,
+            viewBox: parseViewBox(htmlElement.attributes.viewBox || '0 0 1 1'),
+        }, matrix, []);
+    };
+    const drawSvg = (page, svg, options) => {
+        const pdfSvg = typeof svg === 'string' ? new PDFSvg(svg) : svg;
+        if (!pdfSvg.svg)
+            return;
+        const size = page.getSize();
+        const svgNode = dist.parse(pdfSvg.svg).querySelector('svg');
+        if (!svgNode) {
+            return console.error('This is not an svg. Ignoring: ' + pdfSvg.svg);
+        }
+        const attributes = svgNode.attributes;
+        const style = parseStyles(attributes.style);
+        const widthRaw = styleOrAttribute(attributes, style, 'width', '');
+        const heightRaw = styleOrAttribute(attributes, style, 'height', '');
+        const width = options.width !== undefined ? options.width : parseFloat(widthRaw);
+        const height = options.height !== undefined ? options.height : parseFloat(heightRaw);
+        // it's important to add the viewBox to allow svg resizing through the options
+        if (!attributes.viewBox) {
+            svgNode.setAttribute('viewBox', `0 0 ${widthRaw || width} ${heightRaw || height}`);
+        }
+        if (options.width || options.height) {
+            if (width !== undefined)
+                style.width = width + (isNaN(width) ? '' : 'px');
+            if (height !== undefined) {
+                style.height = height + (isNaN(height) ? '' : 'px');
+            }
+            svgNode.setAttribute('style', Object.entries(style) // tslint:disable-line
+                .map(([key, val]) => `${key}:${val};`)
+                .join(''));
+        }
+        const baseTransformation = [
+            1,
+            0,
+            0,
+            1,
+            options.x || 0,
+            options.y || 0,
+        ];
+        const elements = parse(svgNode.outerHTML, options, size, baseTransformation);
+        const runners = runnersToPage(page, { ...options, images: pdfSvg.images });
+        elements.forEach((elt) => {
+            // uncomment these lines to draw the clipSpaces
+            // elt.svgAttributes.clipSpaces.forEach(space => {
+            //   page.drawLine({
+            //     start: space.topLeft,
+            //     end: space.topRight,
+            //     color: parseColor('#000000')?.rgb,
+            //     thickness: 1
+            //   })
+            var _a;
+            //   page.drawLine({
+            //     start: space.topRight,
+            //     end: space.bottomRight,
+            //     color: parseColor('#000000')?.rgb,
+            //     thickness: 1
+            //   })
+            //   page.drawLine({
+            //     start: space.bottomRight,
+            //     end: space.bottomLeft,
+            //     color: parseColor('#000000')?.rgb,
+            //     thickness: 1
+            //   })
+            //   page.drawLine({
+            //     start: space.bottomLeft,
+            //     end: space.topLeft,
+            //     color: parseColor('#000000')?.rgb,
+            //     thickness: 1
+            //   })
+            // })
+            (_a = runners[elt.tagName]) === null || _a === void 0 ? void 0 : _a.call(runners, elt);
+        });
+    };
 
     /**
      * Represents a single page of a [[PDFDocument]].

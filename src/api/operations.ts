@@ -37,13 +37,11 @@ import {
   TextRenderingMode,
   setTextRenderingMode,
 } from './operators';
-import { Rotation, degrees, toDegrees, toRadians } from './rotations';
+import { Rotation, degrees, toRadians } from './rotations';
 import { svgPathToOperators } from './svgPath';
 import { PDFHexString, PDFName, PDFNumber, PDFOperator } from '../core';
 import { asNumber } from './objects';
 import type { Space, TransformationMatrix } from '../types';
-import { transformationToMatrix, combineMatrix } from './svg';
-import { identityMatrix } from '../types/matrix';
 
 export interface DrawTextOptions {
   color: Color;
@@ -236,79 +234,32 @@ export const drawRectangle = (options: {
   graphicsState?: string | PDFName;
   matrix?: TransformationMatrix;
   clipSpaces?: Space[];
-}) => {
-  const { width, height, xSkew, ySkew, rotate, matrix } = options;
-  const w = typeof width === 'number' ? width : width.asNumber();
-  const h = typeof height === 'number' ? height : height.asNumber();
-  const x = typeof options.x === 'number' ? options.x : options.x.asNumber();
-  const y = typeof options.y === 'number' ? options.y : options.y.asNumber();
+}) =>
+  [
+    pushGraphicsState(),
+    options.graphicsState && setGraphicsState(options.graphicsState),
+    options.color && setFillingColor(options.color),
+    options.borderColor && setStrokingColor(options.borderColor),
+    setLineWidth(options.borderWidth),
+    options.borderLineCap && setLineCap(options.borderLineCap),
+    setDashPattern(options.borderDashArray ?? [], options.borderDashPhase ?? 0),
+    translate(options.x, options.y),
+    rotateRadians(toRadians(options.rotate)),
+    skewRadians(toRadians(options.xSkew), toRadians(options.ySkew)),
+    moveTo(0, 0),
+    lineTo(0, options.height),
+    lineTo(options.width, options.height),
+    lineTo(options.width, 0),
+    closePath(),
 
-  // Ensure rx and ry are within bounds
-  const rx = Math.max(0, Math.min(options.rx || 0, w / 2));
-  const ry = Math.max(0, Math.min(options.ry || 0, h / 2));
+    // prettier-ignore
+    options.color && options.borderWidth ? fillAndStroke()
+  : options.color                      ? fill()
+  : options.borderColor                ? stroke()
+  : closePath(),
 
-  // Generate the SVG path
-  const d =
-    rx > 0 || ry > 0
-      ? [
-          `M ${rx},0`,
-          `H ${w - rx}`,
-          `C ${w - rx * (1 - KAPPA)},0 ${w},${ry * (1 - KAPPA)} ${w},${ry}`,
-          `V ${h - ry}`,
-          `C ${w},${h - ry * (1 - KAPPA)} ${w - rx * (1 - KAPPA)},${h} ${w - rx},${h}`,
-          `H ${rx}`,
-          `C ${rx * (1 - KAPPA)},${h} 0,${h - ry * (1 - KAPPA)} 0,${h - ry}`,
-          `V ${ry}`,
-          `C 0,${ry * (1 - KAPPA)} ${rx * (1 - KAPPA)},0 ${rx},0`,
-          `Z`,
-        ].join(' ')
-      : `M 0,0 V ${h} H ${w} V 0 Z`;
-
-  console.log(options);
-  console.log(d);
-
-  // the drawRectangle applies the rotation around its anchor point (bottom-left), it means that the translation should be applied before the rotation
-  // invert the y parameter because transformationToMatrix expects parameters from an svg space. The same is valid for rotate and ySkew
-  let fullMatrix = combineMatrix(
-    matrix || identityMatrix,
-    transformationToMatrix('translate', [x, -y]),
-  );
-
-  // Transformation to apply rotation and skew
-  if (rotate) {
-    fullMatrix = combineMatrix(
-      fullMatrix,
-      transformationToMatrix('rotate', [-toDegrees(rotate)]),
-    );
-  }
-  if (xSkew) {
-    fullMatrix = combineMatrix(
-      fullMatrix,
-      transformationToMatrix('skewX', [toDegrees(xSkew)]),
-    );
-  }
-  if (ySkew) {
-    fullMatrix = combineMatrix(
-      fullMatrix,
-      transformationToMatrix('skewY', [-toDegrees(ySkew)]),
-    );
-  }
-
-  // move the rectangle upward so that the (x, y) coord is bottom-left
-  fullMatrix = combineMatrix(
-    fullMatrix,
-    transformationToMatrix('translateY', [-h]),
-  );
-
-  return drawSvgPath(d, {
-    ...options,
-    x: 0,
-    y: 0,
-    rotate: degrees(0), // Already applied in matrix transform
-    scale: 1,
-    matrix: fullMatrix,
-  });
-};
+    popGraphicsState(),
+  ].filter(Boolean) as PDFOperator[];
 
 /** @deprecated */
 export const drawEllipsePath = (config: {

@@ -6,8 +6,6 @@ const operators_1 = require("./operators");
 const rotations_1 = require("./rotations");
 const svgPath_1 = require("./svgPath");
 const objects_1 = require("./objects");
-const svg_1 = require("./svg");
-const matrix_1 = require("../types/matrix");
 const clipSpace = ({ topLeft, topRight, bottomRight, bottomLeft }) => [
     (0, operators_1.moveTo)(topLeft.x, topLeft.y),
     (0, operators_1.lineTo)(topRight.x, topRight.y),
@@ -100,54 +98,30 @@ const drawLine = (options) => {
 exports.drawLine = drawLine;
 const KAPPA = 4.0 * ((Math.sqrt(2) - 1.0) / 3.0);
 const drawRectangle = (options) => {
-    const { width, height, xSkew, ySkew, rotate, matrix } = options;
-    const w = typeof width === 'number' ? width : width.asNumber();
-    const h = typeof height === 'number' ? height : height.asNumber();
-    const x = typeof options.x === 'number' ? options.x : options.x.asNumber();
-    const y = typeof options.y === 'number' ? options.y : options.y.asNumber();
-    // Ensure rx and ry are within bounds
-    const rx = Math.max(0, Math.min(options.rx || 0, w / 2));
-    const ry = Math.max(0, Math.min(options.ry || 0, h / 2));
-    // Generate the SVG path
-    const d = rx > 0 || ry > 0
-        ? [
-            `M ${rx},0`,
-            `H ${w - rx}`,
-            `C ${w - rx * (1 - KAPPA)},0 ${w},${ry * (1 - KAPPA)} ${w},${ry}`,
-            `V ${h - ry}`,
-            `C ${w},${h - ry * (1 - KAPPA)} ${w - rx * (1 - KAPPA)},${h} ${w - rx},${h}`,
-            `H ${rx}`,
-            `C ${rx * (1 - KAPPA)},${h} 0,${h - ry * (1 - KAPPA)} 0,${h - ry}`,
-            `V ${ry}`,
-            `C 0,${ry * (1 - KAPPA)} ${rx * (1 - KAPPA)},0 ${rx},0`,
-            `Z`,
-        ].join(' ')
-        : `M 0,0 V ${h} H ${w} V 0 Z`;
-    console.log(options);
-    console.log(d);
-    // the drawRectangle applies the rotation around its anchor point (bottom-left), it means that the translation should be applied before the rotation
-    // invert the y parameter because transformationToMatrix expects parameters from an svg space. The same is valid for rotate and ySkew
-    let fullMatrix = (0, svg_1.combineMatrix)(matrix || matrix_1.identityMatrix, (0, svg_1.transformationToMatrix)('translate', [x, -y]));
-    // Transformation to apply rotation and skew
-    if (rotate) {
-        fullMatrix = (0, svg_1.combineMatrix)(fullMatrix, (0, svg_1.transformationToMatrix)('rotate', [-(0, rotations_1.toDegrees)(rotate)]));
-    }
-    if (xSkew) {
-        fullMatrix = (0, svg_1.combineMatrix)(fullMatrix, (0, svg_1.transformationToMatrix)('skewX', [(0, rotations_1.toDegrees)(xSkew)]));
-    }
-    if (ySkew) {
-        fullMatrix = (0, svg_1.combineMatrix)(fullMatrix, (0, svg_1.transformationToMatrix)('skewY', [-(0, rotations_1.toDegrees)(ySkew)]));
-    }
-    // move the rectangle upward so that the (x, y) coord is bottom-left
-    fullMatrix = (0, svg_1.combineMatrix)(fullMatrix, (0, svg_1.transformationToMatrix)('translateY', [-h]));
-    return (0, exports.drawSvgPath)(d, {
-        ...options,
-        x: 0,
-        y: 0,
-        rotate: (0, rotations_1.degrees)(0),
-        scale: 1,
-        matrix: fullMatrix,
-    });
+    var _a, _b;
+    return [
+        (0, operators_1.pushGraphicsState)(),
+        options.graphicsState && (0, operators_1.setGraphicsState)(options.graphicsState),
+        options.color && (0, colors_1.setFillingColor)(options.color),
+        options.borderColor && (0, colors_1.setStrokingColor)(options.borderColor),
+        (0, operators_1.setLineWidth)(options.borderWidth),
+        options.borderLineCap && (0, operators_1.setLineCap)(options.borderLineCap),
+        (0, operators_1.setDashPattern)((_a = options.borderDashArray) !== null && _a !== void 0 ? _a : [], (_b = options.borderDashPhase) !== null && _b !== void 0 ? _b : 0),
+        (0, operators_1.translate)(options.x, options.y),
+        (0, operators_1.rotateRadians)((0, rotations_1.toRadians)(options.rotate)),
+        (0, operators_1.skewRadians)((0, rotations_1.toRadians)(options.xSkew), (0, rotations_1.toRadians)(options.ySkew)),
+        (0, operators_1.moveTo)(0, 0),
+        (0, operators_1.lineTo)(0, options.height),
+        (0, operators_1.lineTo)(options.width, options.height),
+        (0, operators_1.lineTo)(options.width, 0),
+        (0, operators_1.closePath)(),
+        // prettier-ignore
+        options.color && options.borderWidth ? (0, operators_1.fillAndStroke)()
+            : options.color ? (0, operators_1.fill)()
+                : options.borderColor ? (0, operators_1.stroke)()
+                    : (0, operators_1.closePath)(),
+        (0, operators_1.popGraphicsState)(),
+    ].filter(Boolean);
 };
 exports.drawRectangle = drawRectangle;
 /** @deprecated */
